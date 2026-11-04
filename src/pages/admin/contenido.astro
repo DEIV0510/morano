@@ -1,0 +1,65 @@
+---
+// Textos corporativos editables por idioma (gestión de idiomas ES / EN).
+import Admin from '../../layouts/Admin.astro';
+import { FormError, guard, readForm } from '../../lib/admin.ts';
+import { audit } from '../../lib/audit.ts';
+import { COPY } from '../../lib/copy.ts';
+import { getCopy, saveCopy } from '../../lib/content.ts';
+
+const g = guard(Astro, 'content:write');
+if (g instanceof Response) return g;
+const { user, session } = g;
+const groups = [...new Set(COPY.map((c) => c.group))];
+const group = groups.includes(Astro.url.searchParams.get('seccion') || '') ? Astro.url.searchParams.get('seccion')! : groups[0];
+let flash: { kind: 'ok' | 'error'; text: string } | null = Astro.url.searchParams.get('ok') ? { kind: 'ok', text: 'Textos guardados. Ya se ven en la web.' } : null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const fd = await readForm(Astro, g);
+    const fields = COPY.filter((c) => c.group === group);
+    const es: Record<string, string> = {};
+    const en: Record<string, string> = {};
+    for (const f of fields) {
+      es[f.key] = String(fd.get(`es:${f.key}`) ?? '');
+      en[f.key] = String(fd.get(`en:${f.key}`) ?? '');
+    }
+    await saveCopy('es', es, user.id);
+    await saveCopy('en', en, user.id);
+    await audit(user, 'content.update', 'content', group, { keys: fields.length }, g.ipHash);
+    return Astro.redirect(`/admin/contenido?seccion=${encodeURIComponent(group)}&ok=1`, 303);
+  } catch (e) {
+    if (e instanceof FormError) flash = { kind: 'error', text: e.message };
+    else throw e;
+  }
+}
+const [es, en] = await Promise.all([getCopy('es'), getCopy('en')]);
+const fields = COPY.filter((c) => c.group === group);
+---
+
+<Admin title="Textos del sitio" user={user} csrf={session.csrf} active="content" flash={flash}>
+  <nav class="adm-filters" aria-label="Secciones">
+    {groups.map((gname) => <a class:list={['adm-btn adm-btn--sm', { 'adm-btn--ghost': gname !== group }]} href={`?seccion=${encodeURIComponent(gname)}`} aria-current={gname === group ? 'page' : undefined}>{gname}</a>)}
+  </nav>
+  <p class="adm-help">Deje un campo vacío para recuperar el texto original. Las traducciones al inglés deben revisarse en contexto: no use traducción automática sin revisar.</p>
+  <form method="post" class="adm-form adm-card">
+    <input type="hidden" name="_csrf" value={session.csrf} />
+    {
+      fields.map((f) => (
+        <fieldset class="adm-fieldset">
+          <legend>{f.label}</legend>
+          <div class="adm-grid adm-grid--2">
+            <label class="field">
+              <span>Español</span>
+              {f.multiline ? <textarea class="input" name={`es:${f.key}`} rows="3" maxlength="2000">{es[f.key]}</textarea> : <input class="input" name={`es:${f.key}`} value={es[f.key]} maxlength="300" />}
+            </label>
+            <label class="field">
+              <span>English</span>
+              {f.multiline ? <textarea class="input" name={`en:${f.key}`} rows="3" maxlength="2000">{en[f.key]}</textarea> : <input class="input" name={`en:${f.key}`} value={en[f.key]} maxlength="300" />}
+            </label>
+          </div>
+        </fieldset>
+      ))
+    }
+    <div class="adm-actions"><button class="adm-btn" type="submit">Guardar «{group}»</button></div>
+  </form>
+</Admin>

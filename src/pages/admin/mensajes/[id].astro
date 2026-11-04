@@ -1,0 +1,78 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { can } from '../../../lib/auth.ts';
+import { fmtDate, FormError, guard, MESSAGE_LABEL, readForm, str } from '../../../lib/admin.ts';
+import { get, run } from '../../../lib/db.ts';
+import { audit } from '../../../lib/audit.ts';
+import { countryName } from '../../../lib/countries.ts';
+
+const g = guard(Astro, 'messages:read');
+if (g instanceof Response) return g;
+const { user, session } = g;
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id) || id <= 0) return Astro.redirect('/admin/mensajes', 303);
+let flash: { kind: 'ok' | 'error'; text: string } | null = Astro.url.searchParams.get('ok') ? { kind: 'ok', text: 'Cambios guardados.' } : null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (!can(user.role, 'messages:write')) throw new FormError('Su rol no permite modificar mensajes.');
+    const fd = await readForm(Astro, g);
+    const status = str(fd, 'status', 20);
+    if (!(status in MESSAGE_LABEL)) throw new FormError('Estado no válido.');
+    await run('UPDATE messages SET status = ?, internal_notes = ?, updated_at = ? WHERE id = ?', [status, str(fd, 'internal_notes', 4000), Date.now(), id]);
+    await audit(user, 'message.update', 'message', id, { status }, g.ipHash);
+    return Astro.redirect(`/admin/mensajes/${id}?ok=1`, 303);
+  } catch (e) {
+    if (e instanceof FormError) flash = { kind: 'error', text: e.message };
+    else throw e;
+  }
+}
+
+const r = await get<any>('SELECT * FROM messages WHERE id = ?', [id]);
+if (!r) return Astro.redirect('/admin/mensajes', 303);
+if (r.status === 'new' && can(user.role, 'messages:write') && Astro.request.method === 'GET') {
+  await run("UPDATE messages SET status = 'read', updated_at = ? WHERE id = ? AND status = 'new'", [Date.now(), id]);
+  r.status = 'read';
+}
+---
+
+<Admin title={`Mensaje ${r.ref}`} user={user} csrf={session.csrf} active="messages" flash={flash}>
+  <a slot="actions" class="adm-btn adm-btn--ghost" href="/admin/mensajes">← Mensajes</a>
+  <div class="adm-grid adm-grid--side">
+    <section class="adm-card">
+      <h2>Mensaje</h2>
+      <dl class="adm-dl">
+        <dt>Recibido</dt><dd>{fmtDate(r.created_at)}</dd>
+        <dt>Nombre</dt><dd>{r.full_name}</dd>
+        <dt>Empresa</dt><dd>{r.company || '—'}</dd>
+        <dt>Correo</dt><dd><a href={`mailto:${r.email}?subject=${encodeURIComponent(`Morano Europe · ${r.ref}`)}`}>{r.email}</a></dd>
+        <dt>Teléfono</dt><dd>{r.phone || '—'}</dd>
+        <dt>País</dt><dd>{r.country ? countryName(r.country, 'es') : '—'}</dd>
+        <dt>Mensaje</dt><dd>{r.message}</dd>
+      </dl>
+    </section>
+    <section class="adm-card">
+      <h2>Seguimiento</h2>
+      {
+        can(user.role, 'messages:write') ? (
+          <form method="post" class="adm-form">
+            <input type="hidden" name="_csrf" value={session.csrf} />
+            <label class="field">
+              <span>Estado</span>
+              <select class="input" name="status">
+                {Object.entries(MESSAGE_LABEL).map(([k, v]) => <option value={k} selected={k === r.status}>{v}</option>)}
+              </select>
+            </label>
+            <label class="field">
+              <span>Notas internas</span>
+              <textarea class="input" name="internal_notes" rows="6" maxlength="4000">{r.internal_notes}</textarea>
+            </label>
+            <button class="adm-btn" type="submit">Guardar</button>
+          </form>
+        ) : (
+          <p class="adm-help">Estado: {MESSAGE_LABEL[r.status]}</p>
+        )
+      }
+    </section>
+  </div>
+</Admin>

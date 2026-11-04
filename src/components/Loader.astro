@@ -1,0 +1,42 @@
+---
+// Pantalla de carga: los cuatro marcos del logotipo se dibujan, aparece el
+// nombre y la cortina sube. Solo en la primera visita de la sesión; sale en
+// cuanto la imagen principal está lista (máx. ~1,8 s) y, sin JavaScript, sola.
+import { t, type Locale } from '../lib/i18n.ts';
+import data from '../assets/brand/logo-data.json';
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const { frames: f, stroke, colors } = data as any;
+const order = [
+  ['gold', colors.gold],
+  ['gray', colors.gray],
+  ['navy', '#ffffff'],
+  ['silver', colors.silver],
+] as const;
+---
+
+<div class="loader" data-loader role="status" aria-label={t(locale, 'loader.label')}>
+  <div class="loader__inner">
+    <svg class="loader__mark" viewBox="152 20 236 178" aria-hidden="true" focusable="false">
+      {
+        order.map(([k, c], i) => (
+          <rect
+            class={`loader__rect loader__rect--${i + 1}`}
+            x={f[k].x}
+            y={f[k].y}
+            width={f[k].w}
+            height={f[k].h}
+            fill="none"
+            stroke={c}
+            stroke-width={stroke}
+            pathLength="100"
+          />
+        ))
+      }
+    </svg>
+    <svg class="loader__word" viewBox="430 28 1026 166" aria-hidden="true" focusable="false"><use href="#me-word"></use></svg>
+  </div>
+  <div class="loader__bar" aria-hidden="true"><span></span></div>
+</div>

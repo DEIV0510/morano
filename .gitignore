@@ -1,0 +1,30 @@
+# Dependencias y compilación
+node_modules/
+dist/
+.astro/
+
+# Secretos: nunca al repositorio
+.env
+.env.*
+!.env.example
+
+# Base de datos local, copias de seguridad y subidas
+data/
+backups/
+*.db
+*.db-shm
+*.db-wal
+
+# Documentos internos del brief (el material fotográfico sí se versiona)
+_material/*.pdf
+_material/*.docx
+
+# Pruebas y herramientas
+test-results/
+playwright-report/
+lighthouse/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

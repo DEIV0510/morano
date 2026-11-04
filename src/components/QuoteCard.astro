@@ -1,0 +1,39 @@
+---
+import Icon from './Icon.astro';
+import { route, t, type Locale } from '../lib/i18n.ts';
+import type { Product } from '../lib/catalog.ts';
+
+interface Props {
+  product: Product;
+  locale: Locale;
+  index: number;
+}
+const { product: p, locale, index } = Astro.props;
+const detail = route('product', locale, p.slug);
+---
+
+<li class="qcard reveal" data-delay={(index % 3) * 90}>
+  <article class="qcard__inner">
+    <div class="qcard__top">
+      <span class="qcard__code">{p.code}</span>
+      <span class="qcard__idx num">{String(index + 3).padStart(2, '0')}</span>
+    </div>
+    <h4 class="qcard__name"><a href={detail}>{p.name}</a></h4>
+    <p class="qcard__sub">{p.subtitle}</p>
+    <p class="qcard__desc">{p.description}</p>
+    <div class="qcard__spec">
+      <div>
+        <p class="qcard__h">{t(locale, 'common.characteristics')}</p>
+        <ul role="list">{p.features.slice(0, 3).map((f) => <li>{f}</li>)}</ul>
+      </div>
+      <div>
+        <p class="qcard__h">{t(locale, 'common.applications')}</p>
+        <ul role="list">{p.applications.map((a) => <li>{a}</li>)}</ul>
+      </div>
+    </div>
+    <div class="qcard__actions">
+      <button class="btn btn--outline btn--sm" type="button" data-quote-open data-product={p.slug}>{t(locale, 'common.requestQuote')}</button>
+      <a class="qcard__more" href={detail} aria-label={`${t(locale, 'common.viewDetail')}: ${p.name}`}><Icon name="arrow" /></a>
+    </div>
+  </article>
+</li>

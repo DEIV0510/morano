@@ -1,0 +1,22 @@
+---
+import { qs } from '../../lib/admin.ts';
+interface Props {
+  url: URL;
+  page: number;
+  size: number;
+  total: number;
+}
+const { url, page, size, total } = Astro.props;
+const pages = Math.max(1, Math.ceil(total / size));
+const from = total ? (page - 1) * size + 1 : 0;
+const to = Math.min(total, page * size);
+---
+
+<nav class="adm-pager" aria-label="Paginación">
+  <span>{from}–{to} de {total}</span>
+  <div>
+    {page > 1 && <a class="adm-btn adm-btn--ghost adm-btn--sm" href={qs(url, { p: page - 1 }) || '?'}>← Anterior</a>}
+    <span>Página {page} de {pages}</span>
+    {page < pages && <a class="adm-btn adm-btn--ghost adm-btn--sm" href={qs(url, { p: page + 1 })}>Siguiente →</a>}
+  </div>
+</nav>

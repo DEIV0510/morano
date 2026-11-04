@@ -1,0 +1,78 @@
+---
+import Logo from './Logo.astro';
+import Icon from './Icon.astro';
+import { contact } from '../lib/config.ts';
+import { route, SECTIONS, t, type Locale } from '../lib/i18n.ts';
+
+interface Props {
+  locale: Locale;
+  alternates: Record<Locale, string>;
+  overlay: boolean;
+}
+const { locale, alternates, overlay } = Astro.props;
+const home = route('home', locale);
+const S = SECTIONS[locale];
+const other: Locale = locale === 'es' ? 'en' : 'es';
+const links = [
+  { href: `${home}#${S.home}`, label: t(locale, 'nav.home') },
+  { href: `${home}#${S.company}`, label: t(locale, 'nav.company') },
+  { href: `${home}#${S.products}`, label: t(locale, 'nav.products') },
+  { href: `${home}#${S.services}`, label: t(locale, 'nav.services') },
+  { href: `${home}#${S.operations}`, label: t(locale, 'nav.operations') },
+  { href: `${home}#${S.contact}`, label: t(locale, 'nav.contact') },
+];
+// Correspondencia de anclas para conservar la sección al cambiar de idioma.
+const hashMap = JSON.stringify(Object.fromEntries(Object.keys(S).map((k) => [S[k as keyof typeof S], SECTIONS[other][k as keyof typeof S]])));
+---
+
+<header class="site-header" data-header data-overlay={overlay ? 'true' : 'false'} data-solid={overlay ? 'false' : 'true'}>
+  <div class="wrap site-header__inner">
+    <a class="site-header__brand" href={home} aria-label={`Morano Europe SL — ${t(locale, 'nav.home')}`}>
+      <Logo class="site-header__logo" />
+    </a>
+    <nav class="site-nav" aria-label={t(locale, 'nav.primary')}>
+      <ul role="list">
+        {links.slice(1).map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+      </ul>
+    </nav>
+    <div class="site-header__actions">
+      <div class="lang" role="group" aria-label={t(locale, 'nav.language')}>
+        <span class="lang__current" aria-current="true">{locale.toUpperCase()}</span>
+        <a class="lang__other" href={alternates[other]} hreflang={other} lang={other} data-lang-switch data-hash-map={hashMap} title={t(locale, 'nav.switchTo')}>{other.toUpperCase()}</a>
+      </div>
+      <button class="icon-btn cart-btn" type="button" data-cart-open aria-haspopup="dialog" aria-controls="cart-drawer">
+        <Icon name="cart" />
+        <span class="visually-hidden">{t(locale, 'nav.cart')}</span>
+        <span class="cart-btn__count num" data-cart-count hidden>0</span>
+      </button>
+      <button class="btn btn--gold btn--sm site-header__cta" type="button" data-quote-open>{t(locale, 'nav.quote')}</button>
+      <button class="icon-btn menu-btn" type="button" data-menu-open aria-haspopup="dialog" aria-controls="mobile-menu">
+        <Icon name="menu" />
+        <span class="visually-hidden">{t(locale, 'nav.menu')}</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<dialog id="mobile-menu" class="menu" aria-label={t(locale, 'nav.menu')}>
+  <div class="menu__top">
+    <a class="menu__brand" href={home} data-menu-close><Logo class="menu__logo" /></a>
+    <button class="icon-btn" type="button" data-menu-close><Icon name="close" /><span class="visually-hidden">{t(locale, 'nav.close')}</span></button>
+  </div>
+  <nav class="menu__nav" aria-label={t(locale, 'nav.primary')}>
+    <ol role="list">
+      {links.map((l, i) => (
+        <li>
+          <a href={l.href} data-menu-close><span class="menu__idx num">{String(i + 1).padStart(2, '0')}</span>{l.label}</a>
+        </li>
+      ))}
+    </ol>
+  </nav>
+  <div class="menu__foot">
+    <button class="btn btn--gold btn--block" type="button" data-quote-open data-menu-close>{t(locale, 'nav.quote')}</button>
+    <div class="menu__meta">
+      <a href={alternates[other]} hreflang={other} lang={other} data-lang-switch data-hash-map={hashMap}>{t(locale, 'nav.switchTo')}</a>
+      <a href={contact.instagramUrl} rel="noopener" target="_blank">Instagram @{contact.instagram}</a>
+    </div>
+  </div>
+</dialog>

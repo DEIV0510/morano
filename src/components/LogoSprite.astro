@@ -1,0 +1,27 @@
+---
+// Logotipo oficial como <symbol> único por página: la cabecera, el loader y el
+// pie lo reutilizan con <use>. Las partes azules usan currentColor para poder
+// mostrar la versión negativa (blanca) sobre fondos oscuros.
+import data from '../assets/brand/logo-data.json';
+
+const round = (d: string) => d.replace(/-?\d+\.\d+/g, (n) => String(Math.round(Number(n) * 10) / 10));
+const { frames: f, stroke, words, colors } = data as any;
+const rect = (r: any, color: string) =>
+  `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="${color}" stroke-width="${stroke}"/>`;
+const mark = [
+  rect(f.gold, colors.gold),
+  rect(f.gray, colors.gray),
+  rect(f.navy, 'currentColor'),
+  rect(f.silver, colors.silver),
+  `<rect x="260" y="124" width="10" height="7" fill="currentColor"/>`,
+  `<rect x="232" y="167" width="7" height="10" fill="${colors.gray}"/>`,
+].join('');
+const wordmark = [
+  `<path fill="currentColor" fill-rule="evenodd" d="${round(words.morano)}"/>`,
+  `<path fill="${colors.gold}" fill-rule="evenodd" d="${round(words.europe)}"/>`,
+  `<path fill="${colors.gray}" fill-rule="evenodd" d="${round(words.sl)}"/>`,
+].join('');
+const sprite = `<symbol id="me-mark" viewBox="152 20 236 178">${mark}</symbol><symbol id="me-word" viewBox="430 28 1026 166">${wordmark}</symbol><symbol id="me-logo" viewBox="160 28 1296 166">${mark}${wordmark}</symbol>`;
+---
+
+<svg class="visually-hidden" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" set:html={sprite} />

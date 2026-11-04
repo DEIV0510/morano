@@ -1,0 +1,80 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import Pager from '../../components/admin/Pager.astro';
+import { fmtDate, guard, like, pageParams } from '../../lib/admin.ts';
+import { all, get } from '../../lib/db.ts';
+
+const g = guard(Astro, 'audit:read');
+if (g instanceof Response) return g;
+const { user, session } = g;
+const url = Astro.url;
+const tab = url.searchParams.get('ver') === 'correo' ? 'correo' : 'actividad';
+const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
+const { page, size, offset } = pageParams(url, 30);
+
+let total = 0;
+let audits: { at: number; user_email: string | null; action: string; entity: string | null; entity_id: string | null; detail: string }[] = [];
+let emails: { at: number; recipient: string; template: string; subject: string; status: string; error: string; related: string }[] = [];
+if (tab === 'actividad') {
+  const w = q ? "WHERE action LIKE ? ESCAPE '\\' OR user_email LIKE ? ESCAPE '\\'" : '';
+  const a = q ? [like(q), like(q)] : [];
+  total = (await get<{ n: number }>(`SELECT COUNT(*) AS n FROM audit_log ${w}`, a))?.n ?? 0;
+  audits = await all(`SELECT at, user_email, action, entity, entity_id, detail FROM audit_log ${w} ORDER BY at DESC LIMIT ? OFFSET ?`, [...a, size, offset]);
+} else {
+  const w = q ? "WHERE recipient LIKE ? ESCAPE '\\' OR subject LIKE ? ESCAPE '\\' OR related LIKE ? ESCAPE '\\'" : '';
+  const a = q ? [like(q), like(q), like(q)] : [];
+  total = (await get<{ n: number }>(`SELECT COUNT(*) AS n FROM email_log ${w}`, a))?.n ?? 0;
+  emails = await all(`SELECT at, recipient, template, subject, status, error, related FROM email_log ${w} ORDER BY at DESC LIMIT ? OFFSET ?`, [...a, size, offset]);
+}
+---
+
+<Admin title="Actividad y correo" user={user} csrf={session.csrf} active="audit">
+  <form class="adm-filters" method="get" role="search">
+    <label class="field">
+      <span>Registro</span>
+      <select class="input" name="ver" data-autosubmit>
+        <option value="actividad" selected={tab === 'actividad'}>Actividad del panel y accesos</option>
+        <option value="correo" selected={tab === 'correo'}>Correos transaccionales</option>
+      </select>
+    </label>
+    <label class="field"><span>Buscar</span><input class="input" type="search" name="q" value={q} maxlength="80" /></label>
+    <button class="adm-btn" type="submit">Filtrar</button>
+  </form>
+  <div class="adm-table-wrap">
+    {
+      tab === 'actividad' ? (
+        <table class="adm-table adm-table--stack">
+          <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Elemento</th><th>Detalle</th></tr></thead>
+          <tbody>
+            {audits.map((a) => (
+              <tr>
+                <td data-label="Fecha" class="muted">{fmtDate(a.at)}</td>
+                <td data-label="Usuario">{a.user_email ?? '—'}</td>
+                <td data-label="Acción">{a.action}</td>
+                <td data-label="Elemento">{a.entity ? `${a.entity} ${a.entity_id ?? ''}` : '—'}</td>
+                <td data-label="Detalle" class="muted">{a.detail === '{}' ? '' : a.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <table class="adm-table adm-table--stack">
+          <thead><tr><th>Fecha</th><th>Destinatario</th><th>Asunto</th><th>Estado</th><th>Detalle</th></tr></thead>
+          <tbody>
+            {emails.map((m) => (
+              <tr>
+                <td data-label="Fecha" class="muted">{fmtDate(m.at)}</td>
+                <td data-label="Para">{m.recipient}</td>
+                <td data-label="Asunto">{m.subject}<br /><span class="adm-help">{m.template} {m.related}</span></td>
+                <td data-label="Estado"><span class={`tag tag--${m.status}`}>{m.status === 'sent' ? 'Enviado' : m.status === 'failed' ? 'Error' : 'No enviado'}</span></td>
+                <td data-label="Detalle" class="muted">{m.error}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+    {total === 0 && <p class="adm-empty">Sin registros.</p>}
+  </div>
+  <Pager url={url} page={page} size={size} total={total} />
+</Admin>

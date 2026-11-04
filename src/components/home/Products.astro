@@ -1,0 +1,45 @@
+---
+import ProductBuy from '../ProductBuy.astro';
+import QuoteCard from '../QuoteCard.astro';
+import { SECTIONS, t, type Locale } from '../../lib/i18n.ts';
+import type { CopyMap } from '../../lib/copy.ts';
+import type { Product } from '../../lib/catalog.ts';
+
+interface Props {
+  locale: Locale;
+  copy: CopyMap;
+  products: Product[];
+  vatIncluded: boolean;
+}
+const { locale, copy, products, vatIncluded } = Astro.props;
+const direct = products.filter((p) => p.kind === 'direct');
+const quote = products.filter((p) => p.kind === 'quote');
+---
+
+<section class="section products" id={SECTIONS[locale].products} aria-labelledby="products-title">
+  <div class="wrap">
+    <header class="products__head grid">
+      <h2 id="products-title" class="h2 products__title reveal">{copy['products.title']}</h2>
+    </header>
+
+    <div class="pblock">
+      <div class="pblock__head reveal">
+        <h3 class="pblock__title"><span class="pblock__count num">{String(direct.length).padStart(2, '0')}</span>{t(locale, 'shop.direct')}</h3>
+        <p class="pblock__intro muted">{copy['products.directIntro']}</p>
+      </div>
+      <div class="buy-grid">
+        {direct.map((p) => <ProductBuy product={p} locale={locale} vatIncluded={vatIncluded} />)}
+      </div>
+    </div>
+
+    <div class="pblock">
+      <div class="pblock__head reveal">
+        <h3 class="pblock__title"><span class="pblock__count num">{String(quote.length).padStart(2, '0')}</span>{t(locale, 'shop.quoteOnly')}</h3>
+        <p class="pblock__intro muted">{copy['products.quoteIntro']}</p>
+      </div>
+      <ul class="qgrid" role="list">
+        {quote.map((p, i) => <QuoteCard product={p} locale={locale} index={i} />)}
+      </ul>
+    </div>
+  </div>
+</section>

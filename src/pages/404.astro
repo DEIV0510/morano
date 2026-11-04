@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+import NotFound from '../components/NotFound.astro';
+import { ROUTES } from '../lib/i18n.ts';
+const locale = Astro.url.pathname.startsWith('/en') ? 'en' : 'es';
+Astro.response.status = 404;
+---
+
+<Base locale={locale} alternates={{ es: ROUTES.home.es, en: ROUTES.home.en }} noindex title="404 | Morano Europe">
+  <NotFound locale={locale} />
+</Base>

@@ -1,0 +1,48 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { COOKIE, completeMfa, cookieOptions, destroySession } from '../../lib/auth.ts';
+import { clientIp } from '../../lib/http.ts';
+
+const auth = Astro.locals.auth;
+if (!auth) return Astro.redirect('/admin/login', 303);
+if (!auth.session.mfa_pending) return Astro.redirect('/admin', 303);
+
+let error = '';
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  if (fd.get('cancel') === '1') {
+    await destroySession(Astro.cookies.get(COOKIE)?.value);
+    Astro.cookies.delete(COOKIE, cookieOptions());
+    return Astro.redirect('/admin/login', 303);
+  }
+  const code = String(fd.get('code') || '').replace(/\D/g, '').slice(0, 6);
+  const r = await completeMfa(Astro.cookies.get(COOKIE)?.value || '', code, clientIp(Astro as any), Astro.request.headers.get('user-agent') || '');
+  if (r.status === 'ok') {
+    Astro.cookies.set(COOKIE, r.token, cookieOptions(12 * 60 * 60));
+    return Astro.redirect('/admin', 303);
+  }
+  if (r.status === 'expired') return Astro.redirect('/admin/login', 303);
+  Astro.response.status = r.status === 'rate_limited' ? 429 : 401;
+  error = r.status === 'rate_limited' ? 'Demasiados intentos. Espere unos minutos.' : 'Código incorrecto o ya utilizado.';
+}
+---
+
+<Admin title="Verificación en dos pasos">
+  <div class="adm-login">
+    <img class="logo-img" src="/brand/logo-morano-europe.svg" width="220" height="28" alt="Morano Europe SL" />
+    <h1>Verificación en dos pasos</h1>
+    <p>Introduzca el código de 6 dígitos de su aplicación de autenticación.</p>
+    {error && <p class="adm-flash adm-flash--error" role="alert">{error}</p>}
+    <form method="post">
+      <label class="field">
+        <span>Código</span>
+        <input class="input" name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required autofocus />
+      </label>
+      <button class="adm-btn" type="submit">Verificar</button>
+    </form>
+    <form method="post">
+      <input type="hidden" name="cancel" value="1" />
+      <button class="adm-btn adm-btn--ghost adm-btn--sm" type="submit">Cancelar</button>
+    </form>
+  </div>
+</Admin>

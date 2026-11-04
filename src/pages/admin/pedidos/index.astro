@@ -1,0 +1,92 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import Pager from '../../../components/admin/Pager.astro';
+import { fmtDate, guard, like, ORDER_LABEL, pageParams } from '../../../lib/admin.ts';
+import { all, get } from '../../../lib/db.ts';
+import { formatMoney } from '../../../lib/pricing.ts';
+
+const g = guard(Astro, 'orders:read');
+if (g instanceof Response) return g;
+const { user, session } = g;
+
+const url = Astro.url;
+const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
+const status = url.searchParams.get('estado') || '';
+const method = url.searchParams.get('pago') || '';
+const { page, size, offset } = pageParams(url);
+
+const where: string[] = [];
+const args: (string | number)[] = [];
+if (q) {
+  where.push("(ref LIKE ? ESCAPE '\\' OR customer_name LIKE ? ESCAPE '\\' OR company LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\')");
+  args.push(like(q), like(q), like(q), like(q));
+}
+if (status in ORDER_LABEL) {
+  where.push('status = ?');
+  args.push(status);
+}
+if (method === 'stripe' || method === 'proforma') {
+  where.push('payment_method = ?');
+  args.push(method);
+}
+const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+const total = (await get<{ n: number }>(`SELECT COUNT(*) AS n FROM orders ${w}`, args))?.n ?? 0;
+const rows = await all<{ id: number; ref: string; status: string; payment_method: string; total_cents: number; customer_name: string; company: string; email: string; country: string; created_at: number }>(
+  `SELECT id, ref, status, payment_method, total_cents, customer_name, company, email, country, created_at FROM orders ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+  [...args, size, offset]
+);
+---
+
+<Admin title="Pedidos" user={user} csrf={session.csrf} active="orders">
+  <form class="adm-filters" method="get" role="search">
+    <label class="field">
+      <span>Buscar</span>
+      <input class="input" type="search" name="q" value={q} placeholder="Referencia, cliente, empresa o correo" maxlength="80" />
+    </label>
+    <label class="field">
+      <span>Estado</span>
+      <select class="input" name="estado" data-autosubmit>
+        <option value="">Todos</option>
+        {Object.entries(ORDER_LABEL).map(([k, v]) => <option value={k} selected={k === status}>{v}</option>)}
+      </select>
+    </label>
+    <label class="field">
+      <span>Pago</span>
+      <select class="input" name="pago" data-autosubmit>
+        <option value="">Todos</option>
+        <option value="stripe" selected={method === 'stripe'}>Tarjeta (Stripe)</option>
+        <option value="proforma" selected={method === 'proforma'}>Proforma</option>
+      </select>
+    </label>
+    <button class="adm-btn" type="submit">Filtrar</button>
+    {(q || status || method) && <a class="adm-btn adm-btn--ghost" href="/admin/pedidos">Limpiar</a>}
+  </form>
+
+  <div class="adm-table-wrap">
+    {
+      rows.length ? (
+        <table class="adm-table adm-table--stack">
+          <thead>
+            <tr><th>Referencia</th><th>Cliente</th><th>País</th><th>Pago</th><th>Estado</th><th>Fecha</th><th class="num">Total</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((o) => (
+              <tr>
+                <td data-label="Ref."><a href={`/admin/pedidos/${o.id}`}>{o.ref}</a></td>
+                <td data-label="Cliente">{o.customer_name}{o.company ? <><br /><span class="adm-help">{o.company}</span></> : ''}</td>
+                <td data-label="País">{o.country}</td>
+                <td data-label="Pago">{o.payment_method === 'stripe' ? 'Tarjeta' : 'Proforma'}</td>
+                <td data-label="Estado"><span class={`tag tag--${o.status}`}>{ORDER_LABEL[o.status]}</span></td>
+                <td data-label="Fecha" class="muted">{fmtDate(o.created_at)}</td>
+                <td data-label="Total" class="num">{formatMoney(o.total_cents, 'es')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p class="adm-empty">No hay pedidos con estos filtros.</p>
+      )
+    }
+  </div>
+  <Pager url={url} page={page} size={size} total={total} />
+</Admin>

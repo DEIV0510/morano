@@ -1,0 +1,60 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { COOKIE, cookieOptions, login } from '../../lib/auth.ts';
+import { clientIp } from '../../lib/http.ts';
+
+// Ya autenticado → al panel.
+if (Astro.locals.auth && !Astro.locals.auth.session.mfa_pending) return Astro.redirect('/admin', 303);
+
+const rawNext = Astro.url.searchParams.get('next') || '/admin';
+// Solo rutas internas del panel (evita redirecciones abiertas).
+const next = /^\/admin(\/[\w\-/?=&%.]*)?$/.test(rawNext) && !rawNext.startsWith('//') ? rawNext : '/admin';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const email = String(fd.get('email') || '');
+  const password = String(fd.get('password') || '');
+  if (!email || !password || password.length > 200) {
+    error = 'Introduzca su correo y su contraseña.';
+  } else {
+    const r = await login(email, password, clientIp(Astro as any), Astro.request.headers.get('user-agent') || '');
+    if (r.status === 'ok') {
+      Astro.cookies.set(COOKIE, r.token, cookieOptions(12 * 60 * 60));
+      return Astro.redirect(r.user.must_change_password ? '/admin/cuenta?forzado=1' : next, 303);
+    }
+    if (r.status === 'mfa') {
+      Astro.cookies.set(COOKIE, r.token, cookieOptions(10 * 60));
+      return Astro.redirect('/admin/mfa', 303);
+    }
+    if (r.status === 'rate_limited' || r.status === 'locked') {
+      Astro.response.status = 429;
+      Astro.response.headers.set('Retry-After', String(r.retryAfter ?? 900));
+      error = `Acceso bloqueado temporalmente por seguridad. Inténtelo de nuevo en ${Math.ceil((r.retryAfter ?? 900) / 60)} min.`;
+    } else {
+      Astro.response.status = 401;
+      error = 'Correo o contraseña incorrectos.';
+    }
+  }
+}
+---
+
+<Admin title="Acceso">
+  <div class="adm-login">
+    <img class="logo-img" src="/brand/logo-morano-europe.svg" width="220" height="28" alt="Morano Europe SL" />
+    <h1>Panel privado</h1>
+    <p>Acceso exclusivo para personal autorizado. La actividad queda registrada.</p>
+    {error && <p class="adm-flash adm-flash--error" role="alert">{error}</p>}
+    <form method="post" action={`/admin/login${next !== '/admin' ? `?next=${encodeURIComponent(next)}` : ''}`}>
+      <label class="field">
+        <span>Correo electrónico</span>
+        <input class="input" type="email" name="email" required autocomplete="username" maxlength="254" autofocus />
+      </label>
+      <label class="field">
+        <span>Contraseña</span>
+        <input class="input" type="password" name="password" required autocomplete="current-password" maxlength="200" />
+      </label>
+      <button class="adm-btn" type="submit">Entrar</button>
+    </form>
+  </div>
+</Admin>

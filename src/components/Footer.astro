@@ -1,0 +1,71 @@
+---
+import Icon from './Icon.astro';
+import { contact } from '../lib/config.ts';
+import { route, SECTIONS, t, type Locale } from '../lib/i18n.ts';
+import { quotableProducts } from '../lib/catalog.ts';
+import { getCopy } from '../lib/content.ts';
+
+interface Props {
+  locale: Locale;
+  description: string;
+}
+const { locale, description } = Astro.props;
+const home = route('home', locale);
+const S = SECTIONS[locale];
+const products = await quotableProducts(locale);
+const copy = await getCopy(locale);
+const year = new Date().getFullYear();
+const wa = `https://wa.me/${contact.whatsappDigits}?text=${encodeURIComponent(t(locale, 'whatsapp.message'))}`;
+---
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="site-footer__top">
+      <div class="site-footer__brand">
+        <svg class="site-footer__logo" viewBox="160 28 1296 166" role="img" aria-label="Morano Europe SL"><use href="#me-logo"></use></svg>
+        <p class="site-footer__desc">{description}</p>
+        <p class="site-footer__slogan">From the palm to the world.</p>
+      </div>
+      <nav class="site-footer__col" aria-label={t(locale, 'footer.navigation')}>
+        <h2 class="site-footer__h">{t(locale, 'footer.navigation')}</h2>
+        <ul role="list">
+          <li><a href={`${home}#${S.company}`}>{t(locale, 'nav.company')}</a></li>
+          <li><a href={`${home}#${S.products}`}>{t(locale, 'nav.products')}</a></li>
+          <li><a href={`${home}#${S.services}`}>{t(locale, 'nav.services')}</a></li>
+          <li><a href={`${home}#${S.operations}`}>{t(locale, 'nav.operations')}</a></li>
+          <li><a href={`${home}#${S.contact}`}>{t(locale, 'nav.contact')}</a></li>
+        </ul>
+      </nav>
+      <nav class="site-footer__col" aria-label={t(locale, 'footer.products')}>
+        <h2 class="site-footer__h">{t(locale, 'footer.products')}</h2>
+        <ul role="list" class="site-footer__products">
+          {products.map((p) => <li><a href={route('product', locale, p.slug)}>{p.name}</a></li>)}
+        </ul>
+      </nav>
+      <div class="site-footer__col">
+        <h2 class="site-footer__h">{t(locale, 'footer.services')}</h2>
+        <ul role="list">
+          {[1, 2, 3, 4, 5, 6].map((n) => <li><a href={`${home}#${S.services}`}>{copy[`service.${n}.title`]}</a></li>)}
+        </ul>
+      </div>
+      <address class="site-footer__col site-footer__contact">
+        <h2 class="site-footer__h">{t(locale, 'footer.contact')}</h2>
+        <p>{contact.company}<br />{contact.address}</p>
+        <p><a href={wa} rel="noopener" target="_blank">WhatsApp {contact.whatsapp}</a></p>
+        <p class="site-footer__social">
+          <a href={contact.instagramUrl} rel="noopener" target="_blank" aria-label="Instagram @moranoeurope"><Icon name="instagram" size={20} /> @{contact.instagram}</a>
+        </p>
+        <p><a href={contact.groupUrl} rel="noopener" target="_blank">moranogruppo.com</a></p>
+      </address>
+    </div>
+    <div class="site-footer__bottom">
+      <p>© {year} {contact.company}. {t(locale, 'footer.rights')} <a href={contact.groupUrl} rel="noopener" target="_blank">{t(locale, 'footer.group')}</a></p>
+      <ul role="list" class="site-footer__legal">
+        <li><a href={route('legal', locale)}>{t(locale, 'footer.legalNotice')}</a></li>
+        <li><a href={route('privacy', locale)}>{t(locale, 'footer.privacy')}</a></li>
+        <li><a href={route('cookies', locale)}>{t(locale, 'footer.cookies')}</a></li>
+        <li><a href={route('terms', locale)}>{t(locale, 'footer.terms')}</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>

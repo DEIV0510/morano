@@ -1,0 +1,71 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import Pager from '../../../components/admin/Pager.astro';
+import { fmtDate, guard, like, MESSAGE_LABEL, pageParams } from '../../../lib/admin.ts';
+import { all, get } from '../../../lib/db.ts';
+
+const g = guard(Astro, 'messages:read');
+if (g instanceof Response) return g;
+const { user, session } = g;
+const url = Astro.url;
+const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
+const status = url.searchParams.get('estado') || '';
+const { page, size, offset } = pageParams(url);
+const where: string[] = [];
+const args: (string | number)[] = [];
+if (q) {
+  where.push("(ref LIKE ? ESCAPE '\\' OR full_name LIKE ? ESCAPE '\\' OR company LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR message LIKE ? ESCAPE '\\')");
+  args.push(like(q), like(q), like(q), like(q), like(q));
+}
+if (status in MESSAGE_LABEL) {
+  where.push('status = ?');
+  args.push(status);
+}
+const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+const total = (await get<{ n: number }>(`SELECT COUNT(*) AS n FROM messages ${w}`, args))?.n ?? 0;
+const rows = await all<{ id: number; ref: string; status: string; full_name: string; company: string; email: string; message: string; created_at: number }>(
+  `SELECT id, ref, status, full_name, company, email, message, created_at FROM messages ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+  [...args, size, offset]
+);
+---
+
+<Admin title="Mensajes de contacto" user={user} csrf={session.csrf} active="messages">
+  <form class="adm-filters" method="get" role="search">
+    <label class="field">
+      <span>Buscar</span>
+      <input class="input" type="search" name="q" value={q} placeholder="Nombre, empresa, correo o texto" maxlength="80" />
+    </label>
+    <label class="field">
+      <span>Estado</span>
+      <select class="input" name="estado" data-autosubmit>
+        <option value="">Todos</option>
+        {Object.entries(MESSAGE_LABEL).map(([k, v]) => <option value={k} selected={k === status}>{v}</option>)}
+      </select>
+    </label>
+    <button class="adm-btn" type="submit">Filtrar</button>
+    {(q || status) && <a class="adm-btn adm-btn--ghost" href="/admin/mensajes">Limpiar</a>}
+  </form>
+  <div class="adm-table-wrap">
+    {
+      rows.length ? (
+        <table class="adm-table adm-table--stack">
+          <thead><tr><th>Referencia</th><th>Remitente</th><th>Mensaje</th><th>Estado</th><th>Fecha</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr>
+                <td data-label="Ref."><a href={`/admin/mensajes/${r.id}`}>{r.ref}</a></td>
+                <td data-label="Remitente">{r.full_name}{r.company ? ` · ${r.company}` : ''}<br /><span class="adm-help">{r.email}</span></td>
+                <td data-label="Mensaje">{r.message.length > 110 ? `${r.message.slice(0, 110)}…` : r.message}</td>
+                <td data-label="Estado"><span class={`tag tag--${r.status}`}>{MESSAGE_LABEL[r.status]}</span></td>
+                <td data-label="Fecha" class="muted">{fmtDate(r.created_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p class="adm-empty">No hay mensajes con estos filtros.</p>
+      )
+    }
+  </div>
+  <Pager url={url} page={page} size={size} total={total} />
+</Admin>

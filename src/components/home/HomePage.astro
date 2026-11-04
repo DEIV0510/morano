@@ -1,0 +1,56 @@
+---
+import Base from '../../layouts/Base.astro';
+import Hero from './Hero.astro';
+import About from './About.astro';
+import Operations from './Operations.astro';
+import Products from './Products.astro';
+import Services from './Services.astro';
+import Connection from './Connection.astro';
+import Contact from './Contact.astro';
+import { config } from '../../lib/config.ts';
+import { getCopy } from '../../lib/content.ts';
+import { publicCatalog } from '../../lib/catalog.ts';
+import { getSettings } from '../../lib/settings.ts';
+import { ROUTES, route, type Locale } from '../../lib/i18n.ts';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const [copy, settings] = await Promise.all([getCopy(locale), getSettings()]);
+const products = await publicCatalog(locale, settings.lowStockDefault);
+
+const site = config.siteUrl;
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${site}/#website`,
+    url: `${site}${route('home', locale)}`,
+    name: 'Morano Europe',
+    inLanguage: locale,
+    publisher: { '@id': `${site}/#organization` },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: locale === 'es' ? 'Productos Morano Europe' : 'Morano Europe products',
+    itemListElement: products.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `${site}${route('product', locale, p.slug)}`,
+      name: `${p.code} — ${p.name}`,
+    })),
+  },
+];
+---
+
+<Base locale={locale} alternates={{ es: ROUTES.home.es, en: ROUTES.home.en }} overlayHeader showLoader jsonLd={jsonLd} pageClass="page-home">
+  <Hero locale={locale} copy={copy} />
+  <About locale={locale} copy={copy} productCount={products.length} />
+  <Operations locale={locale} copy={copy} />
+  <Products locale={locale} copy={copy} products={products} vatIncluded={settings.pricesIncludeVat} />
+  <Services locale={locale} copy={copy} />
+  <Connection locale={locale} copy={copy} />
+  <Contact locale={locale} copy={copy} />
+</Base>

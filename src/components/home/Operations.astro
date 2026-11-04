@@ -1,0 +1,97 @@
+---
+// Galería editorial con las fotografías reales del grupo (sin sustituirlas).
+import Picture from '../Picture.astro';
+import images from '../../data/images.json';
+import { SECTIONS, type Locale } from '../../lib/i18n.ts';
+import type { CopyMap } from '../../lib/copy.ts';
+
+interface Props {
+  locale: Locale;
+  copy: CopyMap;
+}
+const { locale, copy } = Astro.props;
+const es = locale === 'es';
+
+type Tile = {
+  n: number;
+  photos: { name: keyof typeof images; alt: [string, string]; note: [string, string] }[];
+  cls: string;
+};
+const tiles: Tile[] = [
+  {
+    n: 1,
+    cls: 'ops__tile--a',
+    photos: [{ name: 'operario-flujo-aceite', alt: ['Operario sonríe junto al flujo de aceite en la planta', 'Operator smiling beside the oil flow at the plant'], note: ['Equipo en planta, Morano Oleo', 'Plant team, Morano Oleo'] }],
+  },
+  {
+    n: 2,
+    cls: 'ops__tile--b',
+    photos: [{ name: 'planta-linea-proceso', alt: ['Estructura de proceso y vagonetas en la planta de beneficio', 'Process structure and cages at the palm oil mill'], note: ['Línea de proceso de la planta de beneficio', 'Processing line at the palm oil mill'] }],
+  },
+  {
+    n: 3,
+    cls: 'ops__tile--c',
+    photos: [{ name: 'planta-maquinaria', alt: ['Operario frente a un tanque de Morano Oleo y un puente grúa', 'Operator in front of a Morano Oleo tank and an overhead crane'], note: ['Puente grúa y equipos de proceso', 'Overhead crane and process equipment'] }],
+  },
+  {
+    n: 4,
+    cls: 'ops__tile--d',
+    photos: [{ name: 'muestra-aceite', alt: ['Toma de una muestra de aceite en un vaso graduado', 'Oil sample being taken into a graduated beaker'], note: ['Toma de muestras de aceite', 'Oil sampling'] }],
+  },
+  {
+    n: 5,
+    cls: 'ops__tile--e',
+    photos: [
+      { name: 'tanques-almacenamiento', alt: ['Tanques de almacenamiento y zona de cargue', 'Storage tanks and loading area'], note: ['Tanques de almacenamiento y zona de cargue', 'Storage tanks and loading area'] },
+      { name: 'ensacado-planta', alt: ['Ensacado y pesaje en la planta extractora Morano Oleo', 'Bagging and weighing at the Morano Oleo extraction plant'], note: ['Ensacado y pesaje', 'Bagging and weighing'] },
+    ],
+  },
+  {
+    n: 6,
+    cls: 'ops__tile--f',
+    photos: [
+      { name: 'cultivo-cosecha', alt: ['Cosecha de racimos de fruto de palma en el cultivo', 'Harvesting palm fruit bunches in the plantation'], note: ['Cosecha de racimos de fruto fresco', 'Harvesting fresh fruit bunches'] },
+    ],
+  },
+];
+const sizes: Record<string, string> = {
+  'ops__tile--a': '(min-width: 1024px) 30vw, 90vw',
+  'ops__tile--b': '(min-width: 1024px) 58vw, 100vw',
+  'ops__tile--c': '(min-width: 1024px) 28vw, 80vw',
+  'ops__tile--d': '(min-width: 1024px) 22vw, 70vw',
+  'ops__tile--e': '(min-width: 1024px) 24vw, 46vw',
+  'ops__tile--f': '(min-width: 1024px) 58vw, 100vw',
+};
+---
+
+<section class="section ops" id={SECTIONS[locale].operations} aria-labelledby="ops-title">
+  <div class="wrap">
+    <header class="ops__head grid">
+      <h2 id="ops-title" class="h2 ops__title reveal">{copy['ops.title']}</h2>
+      <p class="ops__intro reveal">{copy['ops.intro']}</p>
+    </header>
+
+    <ol class="ops__grid" role="list">
+      {
+        tiles.map((tile) => (
+          <li class:list={['ops__tile', tile.cls]}>
+            <div class:list={['ops__photos', { 'ops__photos--pair': tile.photos.length > 1 }]}>
+              {tile.photos.map((p, i) => (
+                <figure class="ops__fig">
+                  <div class="photo reveal-mask ops__frame" data-delay={i * 140}>
+                    <Picture name={p.name} alt={es ? p.alt[0] : p.alt[1]} sizes={tile.photos.length > 1 ? '(min-width: 1024px) 14vw, 46vw' : sizes[tile.cls]} />
+                  </div>
+                  <figcaption class="ops__note">{es ? p.note[0] : p.note[1]}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <p class="ops__cat reveal">
+              <span class="ops__n num">{String(tile.n).padStart(2, '0')}</span>
+              <span>{copy[`ops.${tile.n}`]}</span>
+            </p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>

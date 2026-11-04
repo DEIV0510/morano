@@ -1,0 +1,15 @@
+---
+import Icon from './Icon.astro';
+import { route, t, type Locale } from '../lib/i18n.ts';
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+---
+
+<section class="wrap notfound">
+  <p class="label">404</p>
+  <h1 class="display">{t(locale, 'error.404.title')}</h1>
+  <p class="lead muted">{t(locale, 'error.404.text')}</p>
+  <a class="btn" href={route('home', locale)}>Morano Europe <Icon name="arrow" /></a>
+</section>

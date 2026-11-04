@@ -1,0 +1,38 @@
+---
+import Icon from '../Icon.astro';
+import { SECTIONS, t, type Locale } from '../../lib/i18n.ts';
+import type { CopyMap } from '../../lib/copy.ts';
+
+interface Props {
+  locale: Locale;
+  copy: CopyMap;
+}
+const { locale, copy } = Astro.props;
+const icons = ['trading', 'industry', 'distribution', 'agreement', 'label', 'ship'] as const;
+---
+
+<section class="section services" id={SECTIONS[locale].services} aria-labelledby="services-title">
+  <div class="wrap grid services__grid">
+    <div class="services__aside">
+      <div class="services__sticky">
+        <h2 id="services-title" class="h2 reveal">{copy['services.title']}</h2>
+        <p class="muted services__note reveal">{copy['services.note']}</p>
+        <button class="btn reveal" type="button" data-quote-open>{t(locale, 'nav.quote')} <Icon name="arrow" /></button>
+      </div>
+    </div>
+    <ol class="services__list" role="list">
+      {
+        icons.map((icon, i) => (
+          <li class="service reveal" data-delay={i * 60}>
+            <span class="service__n num">{String(i + 1).padStart(2, '0')}</span>
+            <Icon name={icon} class="service__icon" size={36} />
+            <div class="service__body">
+              <h3 class="h3 service__title">{copy[`service.${i + 1}.title`]}</h3>
+              <p class="muted">{copy[`service.${i + 1}.text`]}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>

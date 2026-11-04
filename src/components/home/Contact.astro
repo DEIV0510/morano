@@ -1,0 +1,115 @@
+---
+import Icon from '../Icon.astro';
+import { contact } from '../../lib/config.ts';
+import { countryOptions } from '../../lib/countries.ts';
+import { route, SECTIONS, t, type Locale } from '../../lib/i18n.ts';
+import { L, PHONE_PATTERN } from '../../lib/limits.ts';
+import { issueFormToken } from '../../lib/security/antispam.ts';
+import type { CopyMap } from '../../lib/copy.ts';
+import { getSettings } from '../../lib/settings.ts';
+
+interface Props {
+  locale: Locale;
+  copy: CopyMap;
+}
+const { locale, copy } = Astro.props;
+const settings = await getSettings();
+const countries = countryOptions(locale);
+const wa = `https://wa.me/${contact.whatsappDigits}?text=${encodeURIComponent(t(locale, 'whatsapp.message'))}`;
+const privacy = `<a href="${route('privacy', locale)}" target="_blank">${t(locale, 'form.privacyLink')}</a>`;
+const es = locale === 'es';
+---
+
+<section class="contact" id={SECTIONS[locale].contact} aria-labelledby="contact-title">
+  <div class="contact__grid">
+    <div class="contact__aside">
+      <div class="contact__aside-inner">
+        <h2 id="contact-title" class="h2 contact__title reveal">
+          <span>{copy['contact.title1']}</span>
+          <span>{copy['contact.title2']}</span>
+        </h2>
+        <p class="lead contact__intro reveal">{copy['contact.intro']}</p>
+        <dl class="contact__list">
+          <div class="reveal">
+            <dt>{es ? 'Sede' : 'Office'}</dt>
+            <dd>{contact.company}<br /><a href={contact.mapsUrl} target="_blank" rel="noopener">{contact.address}</a></dd>
+          </div>
+          <div class="reveal">
+            <dt>WhatsApp</dt>
+            <dd><a href={wa} target="_blank" rel="noopener">{contact.whatsapp}</a></dd>
+          </div>
+          {
+            settings.publicEmail && (
+              <div class="reveal">
+                <dt>{es ? 'Correo' : 'Email'}</dt>
+                <dd><a href={`mailto:${settings.publicEmail}`}>{settings.publicEmail}</a></dd>
+              </div>
+            )
+          }
+          <div class="reveal">
+            <dt>Instagram</dt>
+            <dd><a href={contact.instagramUrl} target="_blank" rel="noopener">@{contact.instagram}</a></dd>
+          </div>
+          <div class="reveal">
+            <dt>Web</dt>
+            <dd>{contact.web}</dd>
+          </div>
+          <div class="reveal">
+            <dt>{es ? 'Grupo empresarial' : 'Business group'}</dt>
+            <dd><a href={contact.groupUrl} target="_blank" rel="noopener">Morano Gruppo · moranogruppo.com</a></dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="contact__form-wrap">
+      <form class="form-grid contact__form" data-form="contact" action="/api/contact" method="post" novalidate>
+        <input type="hidden" name="locale" value={locale} />
+        <input type="hidden" name="ft" value={issueFormToken()} data-form-token />
+        <div class="hp" aria-hidden="true">
+          <label>{t(locale, 'form.honeypot')}<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+        </div>
+        <label class="field">
+          <span>{t(locale, 'form.fullName')}</span>
+          <input class="input" name="fullName" required minlength={L.name.min} maxlength={L.name.max} autocomplete="name" />
+        </label>
+        <label class="field">
+          <span>{t(locale, 'form.company')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+          <input class="input" name="company" maxlength={L.company.max} autocomplete="organization" />
+        </label>
+        <label class="field">
+          <span>{t(locale, 'form.email')}</span>
+          <input class="input" type="email" name="email" required maxlength={L.email.max} autocomplete="email" />
+        </label>
+        <label class="field">
+          <span>{t(locale, 'form.phone')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+          <input class="input" type="tel" name="phone" pattern={PHONE_PATTERN} maxlength={L.phone.max} autocomplete="tel" />
+        </label>
+        <label class="field field--full">
+          <span>{t(locale, 'form.country')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+          <select class="input" name="country" autocomplete="country">
+            <option value="">{t(locale, 'form.countryPick')}</option>
+            {countries.map((c) => <option value={c.code}>{c.name}</option>)}
+          </select>
+        </label>
+        <label class="field field--full">
+          <span>{t(locale, 'form.message')}</span>
+          <textarea class="input" name="message" rows="5" required minlength={L.message.min} maxlength={L.message.max}></textarea>
+        </label>
+        <label class="check field--full">
+          <input type="checkbox" name="consent" value="1" required />
+          <span set:html={t(locale, 'form.consent', { privacy })} />
+        </label>
+        <div class="form-actions field--full">
+          <p class="form-status" data-form-status role="status" aria-live="polite"></p>
+          <button class="btn" type="submit">{t(locale, 'contact.submit')} <Icon name="arrow" /></button>
+        </div>
+      </form>
+      <div class="form-done" data-form-done hidden tabindex="-1">
+        <span class="form-done__icon"><Icon name="check" size={28} /></span>
+        <h3 class="h3">{t(locale, 'contact.success')}</h3>
+        <p class="muted" data-form-done-text></p>
+      </div>
+    </div>
+  </div>
+</section>

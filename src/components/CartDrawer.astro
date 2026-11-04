@@ -1,0 +1,32 @@
+---
+// Panel lateral del carrito. El contenido lo pinta cart.ts con los importes
+// que devuelve el servidor (/api/cart): el navegador nunca calcula precios.
+import Icon from './Icon.astro';
+import { route, SECTIONS, t, type Locale } from '../lib/i18n.ts';
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+---
+
+<dialog id="cart-drawer" class="drawer" aria-labelledby="cart-title">
+  <div class="drawer__panel">
+    <div class="drawer__head">
+      <h2 id="cart-title" class="h3">{t(locale, 'cart.title')}</h2>
+      <button class="icon-btn" type="button" data-dialog-close><Icon name="close" /><span class="visually-hidden">{t(locale, 'common.close')}</span></button>
+    </div>
+    <div class="drawer__body" data-cart-body aria-live="polite">
+      <p class="drawer__empty" data-cart-empty>
+        {t(locale, 'cart.empty')}
+        <a class="link" href={`${route('home', locale)}#${SECTIONS[locale].products}`} data-dialog-close>{t(locale, 'cart.emptyCta')}</a>
+      </p>
+      <ul role="list" class="cart-lines" data-cart-lines></ul>
+      <p class="cart-notice" data-cart-notice hidden></p>
+    </div>
+    <div class="drawer__foot" data-cart-foot hidden>
+      <dl class="totals" data-cart-totals></dl>
+      <a class="btn btn--block" href={route('checkout', locale)}>{t(locale, 'cart.checkout')} <Icon name="arrow" /></a>
+      <button class="link drawer__continue" type="button" data-dialog-close>{t(locale, 'cart.continue')}</button>
+    </div>
+  </div>
+</dialog>

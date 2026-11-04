@@ -1,0 +1,161 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { can } from '../../../lib/auth.ts';
+import { fmtDate, FormError, guard, ORDER_LABEL, readForm, str } from '../../../lib/admin.ts';
+import { all, get, run } from '../../../lib/db.ts';
+import { audit } from '../../../lib/audit.ts';
+import { ApiError } from '../../../lib/http.ts';
+import { changeStatus, TRANSITIONS, type OrderItemRow, type OrderRow, type OrderStatus } from '../../../lib/orders.ts';
+import { formatMoney } from '../../../lib/pricing.ts';
+import { countryName } from '../../../lib/countries.ts';
+
+const g = guard(Astro, 'orders:read');
+if (g instanceof Response) return g;
+const { user, session } = g;
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id) || id <= 0) return Astro.redirect('/admin/pedidos', 303);
+
+let flash: { kind: 'ok' | 'error'; text: string } | null = null;
+const msg = Astro.url.searchParams.get('ok');
+if (msg) flash = { kind: 'ok', text: msg === 'estado' ? 'Estado actualizado.' : 'Notas guardadas.' };
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (!can(user.role, 'orders:write')) throw new FormError('Su rol no permite modificar pedidos.');
+    const fd = await readForm(Astro, g);
+    const action = str(fd, 'action', 20);
+    if (action === 'status') {
+      const to = str(fd, 'to', 20) as OrderStatus;
+      if (!(to in TRANSITIONS)) throw new FormError('Estado no válido.');
+      if ((to === 'cancelled' || to === 'refunded') && fd.get('confirmed') !== '1') throw new FormError('Confirme la acción.');
+      const note = str(fd, 'note', 1000);
+      await changeStatus(id, to, `admin:${user.id}`, note, { notify: fd.get('notify') === '1' });
+      await audit(user, 'order.status', 'order', id, { to }, g.ipHash);
+      return Astro.redirect(`/admin/pedidos/${id}?ok=estado`, 303);
+    }
+    if (action === 'notes') {
+      await run('UPDATE orders SET internal_notes = ?, updated_at = ? WHERE id = ?', [str(fd, 'internal_notes', 4000), Date.now(), id]);
+      await audit(user, 'order.notes', 'order', id, {}, g.ipHash);
+      return Astro.redirect(`/admin/pedidos/${id}?ok=notas`, 303);
+    }
+    throw new FormError('Acción desconocida.');
+  } catch (e) {
+    if (e instanceof FormError || e instanceof ApiError) flash = { kind: 'error', text: e.message };
+    else throw e;
+  }
+}
+
+const o = await get<OrderRow>('SELECT * FROM orders WHERE id = ?', [id]);
+if (!o) return Astro.redirect('/admin/pedidos', 303);
+const items = await all<OrderItemRow>('SELECT * FROM order_items WHERE order_id = ? ORDER BY id', [id]);
+const events = await all<{ at: number; actor: string; type: string; from_status: string | null; to_status: string | null; note: string }>(
+  'SELECT at, actor, type, from_status, to_status, note FROM order_events WHERE order_id = ? ORDER BY at DESC, id DESC',
+  [id]
+);
+const next = TRANSITIONS[o.status];
+const m = (c: number) => formatMoney(c, 'es');
+const writable = can(user.role, 'orders:write');
+---
+
+<Admin title={`Pedido ${o.ref}`} user={user} csrf={session.csrf} active="orders" flash={flash}>
+  <a slot="actions" class="adm-btn adm-btn--ghost" href="/admin/pedidos">← Pedidos</a>
+  <div class="adm-grid adm-grid--side">
+    <div>
+      <section class="adm-card">
+        <h2>Resumen</h2>
+        <dl class="adm-dl">
+          <dt>Estado</dt><dd><span class={`tag tag--${o.status}`}>{ORDER_LABEL[o.status]}</span></dd>
+          <dt>Pago</dt><dd>{o.payment_method === 'stripe' ? 'Tarjeta (Stripe)' : 'Factura proforma'}{o.stripe_payment_intent ? ` · ${o.stripe_payment_intent}` : ''}</dd>
+          <dt>Creado</dt><dd>{fmtDate(o.created_at)}</dd>
+          <dt>Pagado</dt><dd>{fmtDate(o.paid_at)}</dd>
+          <dt>Idioma</dt><dd>{o.locale.toUpperCase()}</dd>
+        </dl>
+      </section>
+      <section class="adm-card">
+        <h2>Productos</h2>
+        <div class="adm-table-wrap">
+          <table class="adm-table">
+            <thead><tr><th>Producto</th><th>SKU</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Importe</th></tr></thead>
+            <tbody>
+              {items.map((i) => (
+                <tr>
+                  <td>{i.product_name}<br /><span class="adm-help">{i.variant_label}</span></td>
+                  <td class="muted">{i.sku}</td>
+                  <td class="num">{i.qty}</td>
+                  <td class="num">{m(i.unit_price_cents)}</td>
+                  <td class="num">{m(i.line_total_cents)}</td>
+                </tr>
+              ))}
+              <tr><td colspan="4">Subtotal</td><td class="num">{m(o.subtotal_cents)}</td></tr>
+              <tr><td colspan="4">Envío</td><td class="num">{o.shipping_cents === null ? 'Por confirmar' : m(o.shipping_cents)}</td></tr>
+              <tr><td colspan="4">{o.vat_included ? 'IVA incluido' : 'IVA'} ({o.vat_rate_bp / 100} %)</td><td class="num">{m(o.vat_cents)}</td></tr>
+              <tr><td colspan="4"><strong>Total</strong></td><td class="num"><strong>{m(o.total_cents)}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="adm-card">
+        <h2>Cliente y entrega</h2>
+        <dl class="adm-dl">
+          <dt>Nombre</dt><dd>{o.customer_name}</dd>
+          <dt>Empresa</dt><dd>{o.company || '—'}</dd>
+          <dt>NIF / VAT</dt><dd>{o.tax_id || '—'}</dd>
+          <dt>Correo</dt><dd><a href={`mailto:${o.email}`}>{o.email}</a></dd>
+          <dt>Teléfono</dt><dd>{o.phone}</dd>
+          <dt>Dirección</dt><dd>{[o.address_line1, o.address_line2, `${o.postal_code} ${o.city}`, o.region, countryName(o.country, 'es')].filter(Boolean).join('\n')}</dd>
+          <dt>Notas del cliente</dt><dd>{o.notes || '—'}</dd>
+        </dl>
+      </section>
+    </div>
+    <div>
+      {
+        writable && next.length > 0 && (
+          <section class="adm-card">
+            <h2>Cambiar estado</h2>
+            {next.map((to) => (
+              <form method="post" class="adm-form" data-confirm={to === 'cancelled' || to === 'refunded' ? `¿Marcar el pedido ${o.ref} como "${ORDER_LABEL[to]}"? Se repondrán las existencias si ya se habían descontado.` : undefined}>
+                <input type="hidden" name="_csrf" value={session.csrf} />
+                <input type="hidden" name="action" value="status" />
+                <input type="hidden" name="to" value={to} />
+                {to === 'paid' && o.payment_method === 'stripe' && <p class="adm-warn">Los pagos con tarjeta se confirman solos con el webhook de Stripe. Márquelo a mano solo si lo ha verificado en el panel de Stripe.</p>}
+                <label class="field">
+                  <span>Nota (opcional)</span>
+                  <input class="input" name="note" maxlength="1000" placeholder={to === 'shipped' ? 'Transportista y nº de seguimiento' : ''} />
+                </label>
+                <label class="check"><input type="checkbox" name="notify" value="1" checked={to !== 'paid'} /><span>Avisar al cliente por correo</span></label>
+                <button class:list={['adm-btn', { 'adm-btn--danger': to === 'cancelled' || to === 'refunded' }]} type="submit">Pasar a «{ORDER_LABEL[to]}»</button>
+              </form>
+            ))}
+          </section>
+        )
+      }
+      <section class="adm-card">
+        <h2>Notas internas</h2>
+        {
+          writable ? (
+            <form method="post" class="adm-form">
+              <input type="hidden" name="_csrf" value={session.csrf} />
+              <input type="hidden" name="action" value="notes" />
+              <textarea class="input" name="internal_notes" maxlength="4000" rows="5">{o.internal_notes}</textarea>
+              <button class="adm-btn adm-btn--ghost" type="submit">Guardar notas</button>
+            </form>
+          ) : (
+            <p class="adm-help">{o.internal_notes || 'Sin notas.'}</p>
+          )
+        }
+      </section>
+      <section class="adm-card">
+        <h2>Historial</h2>
+        <ol class="adm-timeline">
+          {events.map((e) => (
+            <li>
+              <time>{fmtDate(e.at)} · {e.actor}</time>
+              {e.type === 'status' ? `${ORDER_LABEL[e.from_status ?? ''] ?? e.from_status} → ${ORDER_LABEL[e.to_status ?? ''] ?? e.to_status}` : e.type}
+              {e.note && <><br /><span class="adm-help">{e.note}</span></>}
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
+  </div>
+</Admin>

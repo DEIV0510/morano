@@ -1,0 +1,8 @@
+---
+import ProductPage from '../../../components/ProductPage.astro';
+import { productExists } from '../../../lib/catalog.ts';
+const { slug = '' } = Astro.params;
+if (!(await productExists(slug))) Astro.response.status = 404;
+---
+
+<ProductPage locale="es" slug={slug} />

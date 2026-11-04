@@ -1,0 +1,128 @@
+---
+import '../styles/base.css';
+import '../styles/site.css';
+import LogoSprite from '../components/LogoSprite.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Loader from '../components/Loader.astro';
+import WhatsApp from '../components/WhatsApp.astro';
+import QuoteDialog from '../components/QuoteDialog.astro';
+import CartDrawer from '../components/CartDrawer.astro';
+import { config, contact } from '../lib/config.ts';
+import { clientStrings, htmlLang, ogLocale, route, t, type Locale } from '../lib/i18n.ts';
+import { getCopy } from '../lib/content.ts';
+import { getSettings } from '../lib/settings.ts';
+
+interface Props {
+  locale: Locale;
+  title?: string;
+  description?: string;
+  /** Ruta de esta página en cada idioma (para hreflang y el selector). */
+  alternates: Record<Locale, string>;
+  overlayHeader?: boolean;
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown>[];
+  ogImage?: string;
+  showLoader?: boolean;
+  pageClass?: string;
+}
+
+const {
+  locale,
+  title = t(locale, 'meta.title'),
+  description = t(locale, 'meta.description'),
+  alternates,
+  overlayHeader = false,
+  noindex = false,
+  jsonLd = [],
+  ogImage = '/img/og-morano-europe.jpg',
+  showLoader = false,
+  pageClass = '',
+} = Astro.props;
+
+const site = config.siteUrl;
+const canonical = site + alternates[locale];
+const copy = await getCopy(locale);
+const settings = await getSettings();
+
+// Pantalla de carga solo en la primera portada vista de la sesión (cookie en el middleware).
+const firstVisit = showLoader && Astro.locals.firstVisit === true;
+
+const organization = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': `${site}/#organization`,
+  name: 'Morano Europe SL',
+  alternateName: 'Morano Europe',
+  url: `${site}/`,
+  logo: `${site}/brand/logo-morano-europe.svg`,
+  image: `${site}${ogImage}`,
+  slogan: 'From the Palm to the World',
+  description: t(locale, 'meta.description'),
+  address: { '@type': 'PostalAddress', streetAddress: 'Paseo de la Castellana 200', addressLocality: 'Madrid', addressCountry: 'ES' },
+  contactPoint: [
+    { '@type': 'ContactPoint', telephone: contact.whatsapp.replace(/\s/g, ''), contactType: 'sales', availableLanguage: ['es', 'en'] },
+  ],
+  sameAs: [contact.instagramUrl],
+  parentOrganization: { '@type': 'Organization', name: 'Morano Gruppo', url: contact.groupUrl },
+  ...(settings.taxId ? { taxID: settings.taxId } : {}),
+};
+const ld = [organization, ...jsonLd];
+const ldJson = JSON.stringify(ld.length === 1 ? ld[0] : ld).replace(/</g, '\\u003c');
+const i18nJson = JSON.stringify({ locale, strings: clientStrings(locale), checkout: route('checkout', locale), home: route('home', locale) }).replace(/</g, '\\u003c');
+---
+
+<!doctype html>
+<html lang={htmlLang(locale)} class:list={[pageClass, { 'has-loader': firstVisit }]}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex, nofollow" /> : <meta name="robots" content="index, follow, max-image-preview:large" />}
+    <link rel="alternate" hreflang="es-ES" href={site + alternates.es} />
+    <link rel="alternate" hreflang="en" href={site + alternates.en} />
+    <link rel="alternate" hreflang="x-default" href={site + alternates.en} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morano Europe" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={site + ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morano Europe SL — From the Palm to the World" />
+    <meta property="og:locale" content={ogLocale(locale)} />
+    <meta property="og:locale:alternate" content={ogLocale(locale === 'es' ? 'en' : 'es')} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0c2750" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preload" href="/fonts/jost-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/jost-400.woff2" as="font" type="font/woff2" crossorigin />
+    <script type="application/ld+json" set:html={ldJson} />
+    <slot name="head" />
+  </head>
+  <body data-overlay-header={overlayHeader ? 'true' : undefined}>
+    <LogoSprite />
+    <a class="skip-link" href="#main">{t(locale, 'nav.skip')}</a>
+    {firstVisit && <Loader locale={locale} />}
+    <Header locale={locale} alternates={alternates} overlay={overlayHeader} />
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    <Footer locale={locale} description={copy['footer.description']} />
+    <WhatsApp locale={locale} />
+    <QuoteDialog locale={locale} />
+    <CartDrawer locale={locale} />
+    <script type="application/json" id="me-i18n" set:html={i18nJson} />
+    <script>
+      import '../scripts/site.ts';
+      import '../scripts/cart.ts';
+    </script>
+  </body>
+</html>

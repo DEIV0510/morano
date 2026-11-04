@@ -1,0 +1,11 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist", "_material", "data", "backups"],
+  "compilerOptions": {
+    // src/lib se ejecuta también con Node (tests) mediante type stripping:
+    // solo sintaxis TypeScript borrable (sin enums ni parameter properties).
+    "erasableSyntaxOnly": true,
+    "noUncheckedIndexedAccess": false
+  }
+}

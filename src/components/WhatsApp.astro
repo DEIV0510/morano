@@ -1,0 +1,15 @@
+---
+import Icon from './Icon.astro';
+import { contact } from '../lib/config.ts';
+import { t, type Locale } from '../lib/i18n.ts';
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const href = `https://wa.me/${contact.whatsappDigits}?text=${encodeURIComponent(t(locale, 'whatsapp.message'))}`;
+---
+
+<a class="wa-float" href={href} target="_blank" rel="noopener" aria-label={`${t(locale, 'whatsapp.label')} · ${contact.whatsapp}`}>
+  <Icon name="whatsapp" size={24} />
+  <span class="wa-float__text">WhatsApp</span>
+</a>

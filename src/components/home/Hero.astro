@@ -1,0 +1,74 @@
+---
+import Icon from '../Icon.astro';
+import Picture from '../Picture.astro';
+import images from '../../data/images.json';
+import { SECTIONS, t, type Locale } from '../../lib/i18n.ts';
+import type { CopyMap } from '../../lib/copy.ts';
+
+interface Props {
+  locale: Locale;
+  copy: CopyMap;
+}
+const { locale, copy } = Astro.props;
+const S = SECTIONS[locale];
+const set = (name: keyof typeof images, ext: string) => images[name].widths.map((w) => `/img/${name}-${w}.${ext} ${w}w`).join(', ');
+const altMain = locale === 'es' ? 'Línea de proceso en la planta de beneficio del grupo en Colombia' : 'Processing line at the group’s palm oil mill in Colombia';
+---
+
+<section class="hero" id={S.home} aria-labelledby="hero-title" data-hero>
+  <div class="hero__media" data-parallax="0.18">
+    <picture>
+      <source media="(max-width: 767px)" type="image/avif" srcset={set('planta-maquinaria', 'avif')} sizes="100vw" />
+      <source media="(max-width: 767px)" type="image/webp" srcset={set('planta-maquinaria', 'webp')} sizes="100vw" />
+      <source media="(max-width: 767px)" srcset={set('planta-maquinaria', 'jpg')} sizes="100vw" />
+      <source type="image/avif" srcset={set('planta-linea-proceso', 'avif')} sizes="100vw" />
+      <source type="image/webp" srcset={set('planta-linea-proceso', 'webp')} sizes="100vw" />
+      <img
+        class="hero__img"
+        src="/img/planta-linea-proceso-1280.jpg"
+        srcset={set('planta-linea-proceso', 'jpg')}
+        sizes="100vw"
+        width="1280"
+        height="853"
+        alt={altMain}
+        fetchpriority="high"
+        loading="eager"
+        decoding="sync"
+        data-hero-img
+      />
+    </picture>
+  </div>
+  <div class="hero__shade" aria-hidden="true"></div>
+
+  <div class="wrap hero__grid">
+    <div class="hero__content">
+      <h1 id="hero-title" class="display hero__title">
+        <span class="hero__line"><span>{copy['hero.line1']}</span></span>
+        <span class="hero__line"><span>{copy['hero.line2']}</span></span>
+      </h1>
+      <p class="lead hero__sub">{copy['hero.subtitle']}</p>
+      <div class="hero__ctas">
+        <a class="btn btn--gold" href={`#${S.products}`}>{copy['hero.ctaProducts']} <Icon name="arrow" /></a>
+        <button class="btn btn--ghost" type="button" data-quote-open>{t(locale, 'nav.quote')}</button>
+      </div>
+    </div>
+
+    <figure class="hero__inset" aria-label={copy['hero.insetCaption']}>
+      <div class="hero__inset-frame framed">
+        <div class="photo">
+          <Picture name="cultivo-racimo" alt={locale === 'es' ? 'Agricultor con un racimo de fruto de palma recién cosechado' : 'Grower holding a freshly harvested palm fruit bunch'} sizes="(min-width: 1024px) 18vw, 0px" />
+        </div>
+      </div>
+      <figcaption>{copy['hero.insetCaption']}</figcaption>
+    </figure>
+  </div>
+
+  <div class="wrap hero__foot">
+    <ul class="hero__trust" role="list">
+      <li>{copy['hero.trust1']}</li>
+      <li>{copy['hero.trust2']}</li>
+      <li>{copy['hero.trust3']}</li>
+    </ul>
+    <p class="hero__caption">{copy['hero.caption']}</p>
+  </div>
+</section>

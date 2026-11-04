@@ -1,0 +1,84 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { can } from '../../../lib/auth.ts';
+import { fmtDate, FormError, guard, QUOTE_LABEL, readForm, str } from '../../../lib/admin.ts';
+import { get, run } from '../../../lib/db.ts';
+import { audit } from '../../../lib/audit.ts';
+import { countryName } from '../../../lib/countries.ts';
+
+const g = guard(Astro, 'quotes:read');
+if (g instanceof Response) return g;
+const { user, session } = g;
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id) || id <= 0) return Astro.redirect('/admin/cotizaciones', 303);
+let flash: { kind: 'ok' | 'error'; text: string } | null = Astro.url.searchParams.get('ok') ? { kind: 'ok', text: 'Cambios guardados.' } : null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (!can(user.role, 'quotes:write')) throw new FormError('Su rol no permite modificar cotizaciones.');
+    const fd = await readForm(Astro, g);
+    const status = str(fd, 'status', 20);
+    if (!(status in QUOTE_LABEL)) throw new FormError('Estado no válido.');
+    await run('UPDATE quotes SET status = ?, internal_notes = ?, updated_at = ? WHERE id = ?', [status, str(fd, 'internal_notes', 4000), Date.now(), id]);
+    await audit(user, 'quote.update', 'quote', id, { status }, g.ipHash);
+    return Astro.redirect(`/admin/cotizaciones/${id}?ok=1`, 303);
+  } catch (e) {
+    if (e instanceof FormError) flash = { kind: 'error', text: e.message };
+    else throw e;
+  }
+}
+
+const r = await get<any>('SELECT * FROM quotes WHERE id = ?', [id]);
+if (!r) return Astro.redirect('/admin/cotizaciones', 303);
+// Abrir una solicitud nueva la marca como "en gestión" para que el equipo sepa que alguien la vio.
+if (r.status === 'new' && can(user.role, 'quotes:write') && Astro.request.method === 'GET') {
+  await run("UPDATE quotes SET status = 'in_progress', updated_at = ? WHERE id = ? AND status = 'new'", [Date.now(), id]);
+  r.status = 'in_progress';
+}
+const subject = encodeURIComponent(`Morano Europe · Cotización ${r.ref} · ${r.product_label}`);
+---
+
+<Admin title={`Cotización ${r.ref}`} user={user} csrf={session.csrf} active="quotes" flash={flash}>
+  <a slot="actions" class="adm-btn adm-btn--ghost" href="/admin/cotizaciones">← Cotizaciones</a>
+  <div class="adm-grid adm-grid--side">
+    <section class="adm-card">
+      <h2>Solicitud</h2>
+      <dl class="adm-dl">
+        <dt>Recibida</dt><dd>{fmtDate(r.created_at)}</dd>
+        <dt>Producto</dt><dd>{r.product_label}</dd>
+        <dt>Volumen</dt><dd>{r.volume}</dd>
+        <dt>Necesidades</dt><dd>{r.needs || '—'}</dd>
+        <dt>Nombre</dt><dd>{r.full_name}</dd>
+        <dt>Empresa</dt><dd>{r.company}</dd>
+        <dt>Correo</dt><dd><a href={`mailto:${r.email}?subject=${subject}`}>{r.email}</a></dd>
+        <dt>Teléfono</dt><dd>{r.phone}</dd>
+        <dt>País</dt><dd>{countryName(r.country, 'es')}</dd>
+        <dt>Idioma</dt><dd>{String(r.locale).toUpperCase()}</dd>
+        <dt>Envío al CRM</dt><dd>{r.crm_status === 'sent' ? 'Enviado' : r.crm_status === 'failed' ? 'Falló (revise CRM_WEBHOOK_URL)' : 'Sin CRM externo configurado'}</dd>
+      </dl>
+    </section>
+    <section class="adm-card">
+      <h2>Seguimiento</h2>
+      {
+        can(user.role, 'quotes:write') ? (
+          <form method="post" class="adm-form">
+            <input type="hidden" name="_csrf" value={session.csrf} />
+            <label class="field">
+              <span>Estado</span>
+              <select class="input" name="status">
+                {Object.entries(QUOTE_LABEL).map(([k, v]) => <option value={k} selected={k === r.status}>{v}</option>)}
+              </select>
+            </label>
+            <label class="field">
+              <span>Notas internas</span>
+              <textarea class="input" name="internal_notes" rows="6" maxlength="4000">{r.internal_notes}</textarea>
+            </label>
+            <button class="adm-btn" type="submit">Guardar</button>
+          </form>
+        ) : (
+          <p class="adm-help">Estado: {QUOTE_LABEL[r.status]}. {r.internal_notes}</p>
+        )
+      }
+    </section>
+  </div>
+</Admin>

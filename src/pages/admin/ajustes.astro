@@ -1,0 +1,95 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { FormError, guard, parseEuros, parseIntOrNull, readForm, str, centsToInput } from '../../lib/admin.ts';
+import { audit } from '../../lib/audit.ts';
+import { config, smtpConfigured, stripeConfigured } from '../../lib/config.ts';
+import { getSettings, saveSettings } from '../../lib/settings.ts';
+
+const g = guard(Astro, 'settings:write');
+if (g instanceof Response) return g;
+const { user, session } = g;
+let flash: { kind: 'ok' | 'error'; text: string } | null = Astro.url.searchParams.get('ok') ? { kind: 'ok', text: 'Ajustes guardados.' } : null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const fd = await readForm(Astro, g);
+    const vat = str(fd, 'vatRate', 6).replace(',', '.');
+    if (!/^\d{1,2}(\.\d{1,2})?$/.test(vat)) throw new FormError('IVA no válido (p. ej. 21).');
+    const email = str(fd, 'publicEmail', 254).toLowerCase();
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new FormError('Correo público no válido.');
+    const shippingRaw = str(fd, 'shipping', 20);
+    const patch = {
+      vatRateBp: Math.round(Number(vat) * 100),
+      pricesIncludeVat: fd.get('pricesIncludeVat') === '1',
+      shippingCents: /^0+([.,]0+)?$/.test(shippingRaw) ? 0 : parseEuros(shippingRaw),
+      freeShippingFromCents: parseEuros(str(fd, 'freeFrom', 20)),
+      cardPaymentsEnabled: fd.get('cardPaymentsEnabled') === '1',
+      lowStockDefault: parseIntOrNull(str(fd, 'lowStockDefault', 6), 0, 100000) ?? 5,
+      legalName: str(fd, 'legalName', 120) || 'MORANO EUROPE SL',
+      taxId: str(fd, 'taxId', 20).toUpperCase(),
+      registry: str(fd, 'registry', 300),
+      publicEmail: email,
+    };
+    await saveSettings(patch, user.id);
+    await audit(user, 'settings.update', 'settings', undefined, { keys: Object.keys(patch) }, g.ipHash);
+    return Astro.redirect('/admin/ajustes?ok=1', 303);
+  } catch (e) {
+    if (e instanceof FormError) flash = { kind: 'error', text: e.message };
+    else throw e;
+  }
+}
+const s = await getSettings();
+const integrations = [
+  { name: 'Stripe (pagos con tarjeta)', ok: stripeConfigured(), how: 'STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET; webhook a /api/webhooks/stripe' },
+  { name: 'Correo SMTP', ok: smtpConfigured(), how: 'SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_FROM' },
+  { name: 'Buzón comercial', ok: Boolean(config.mail.sales), how: 'SALES_EMAIL' },
+  { name: 'Alertas de seguridad', ok: Boolean(config.mail.alert), how: 'ALERT_EMAIL' },
+  { name: 'CRM externo (webhook)', ok: Boolean(config.crm.url), how: 'CRM_WEBHOOK_URL y CRM_WEBHOOK_SECRET (opcional)' },
+];
+---
+
+<Admin title="Ajustes" user={user} csrf={session.csrf} active="settings" flash={flash}>
+  <div class="adm-grid adm-grid--side">
+    <form method="post" class="adm-form">
+      <input type="hidden" name="_csrf" value={session.csrf} />
+      <section class="adm-card adm-form">
+        <h2>Impuestos y envío</h2>
+        <div class="adm-grid adm-grid--2">
+          <label class="field"><span>IVA (%)</span><input class="input" name="vatRate" value={(s.vatRateBp / 100).toString().replace('.', ',')} inputmode="decimal" required /></label>
+          <label class="field">
+            <span>Los precios del catálogo…</span>
+            <select class="input" name="pricesIncludeVat">
+              <option value="1" selected={s.pricesIncludeVat}>incluyen IVA</option>
+              <option value="0" selected={!s.pricesIncludeVat}>no incluyen IVA (se suma al total)</option>
+            </select>
+          </label>
+          <label class="field"><span>Coste de envío por pedido (€)</span><input class="input" name="shipping" value={s.shippingCents === null ? '' : centsToInput(s.shippingCents) || '0'} inputmode="decimal" placeholder="Vacío = se confirma en la proforma" /></label>
+          <label class="field"><span>Envío gratis desde (€)</span><input class="input" name="freeFrom" value={centsToInput(s.freeShippingFromCents)} inputmode="decimal" placeholder="Opcional" /></label>
+        </div>
+        <p class="adm-help">Con el envío vacío, la web no cobra con tarjeta: registra el pedido y el equipo envía la proforma con el importe final. Escriba 0 para envío gratuito.</p>
+        <label class="check"><input type="checkbox" name="cardPaymentsEnabled" value="1" checked={s.cardPaymentsEnabled} /><span>Permitir pago con tarjeta cuando Stripe esté configurado</span></label>
+        <label class="field"><span>Aviso de existencias bajas (unidades, por defecto)</span><input class="input" name="lowStockDefault" value={s.lowStockDefault} inputmode="numeric" /></label>
+      </section>
+      <section class="adm-card adm-form">
+        <h2>Datos legales de la sociedad</h2>
+        <p class="adm-help">Se muestran en el aviso legal, la política de privacidad y las condiciones de compra. Solo se publican si están rellenos.</p>
+        <div class="adm-grid adm-grid--2">
+          <label class="field"><span>Razón social</span><input class="input" name="legalName" value={s.legalName} maxlength="120" /></label>
+          <label class="field"><span>NIF</span><input class="input" name="taxId" value={s.taxId} maxlength="20" placeholder="B12345678" /></label>
+          <label class="field"><span>Correo público de contacto</span><input class="input" type="email" name="publicEmail" value={s.publicEmail} maxlength="254" /></label>
+          <label class="field"><span>Datos registrales</span><input class="input" name="registry" value={s.registry} maxlength="300" placeholder="Registro Mercantil de Madrid, tomo…, folio…, hoja…" /></label>
+        </div>
+      </section>
+      <div class="adm-actions"><button class="adm-btn" type="submit">Guardar ajustes</button></div>
+    </form>
+    <section class="adm-card">
+      <h2>Integraciones</h2>
+      <p class="adm-help">Se configuran con variables de entorno en el servidor (nunca en el código ni en el navegador).</p>
+      <ul class="check-list">
+        {integrations.map((i) => (
+          <li><span class={i.ok ? 'ok' : 'no'} aria-hidden="true">{i.ok ? '✓' : '✕'}</span><span><strong>{i.name}</strong> — {i.ok ? 'configurado' : 'pendiente'}<br /><span class="adm-help">{i.how}</span></span></li>
+        ))}
+      </ul>
+    </section>
+  </div>
+</Admin>

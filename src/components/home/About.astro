@@ -1,0 +1,72 @@
+---
+import Icon from '../Icon.astro';
+import Picture from '../Picture.astro';
+import { contact } from '../../lib/config.ts';
+import { SECTIONS, t, type Locale } from '../../lib/i18n.ts';
+import type { CopyMap } from '../../lib/copy.ts';
+
+interface Props {
+  locale: Locale;
+  copy: CopyMap;
+  productCount: number;
+}
+const { locale, copy, productCount } = Astro.props;
+const es = locale === 'es';
+---
+
+<section class="section about" id={SECTIONS[locale].company} aria-labelledby="about-title">
+  <div class="wrap grid about__grid">
+    <div class="about__text">
+      <p class="label reveal">{t(locale, 'nav.company')} · Morano Gruppo</p>
+      <h2 id="about-title" class="h2 reveal">
+        <span>{copy['about.title1']}</span>
+        <span class="about__title-2">{copy['about.title2']}</span>
+      </h2>
+      <p class="lead reveal">{copy['about.lead']}</p>
+      <p class="muted reveal">{copy['about.body']}</p>
+      <a class="link reveal" href={contact.groupUrl} target="_blank" rel="noopener">moranogruppo.com <Icon name="arrow-up-right" size={14} /></a>
+    </div>
+
+    <div class="about__media">
+      <figure class="about__photo about__photo--main framed">
+        <div class="reveal-mask photo">
+          <Picture
+            name="operario-muestra-aceite"
+            alt={es ? 'Operario de Morano Oleo sostiene una muestra de aceite en la planta' : 'Morano Oleo operator holding an oil sample at the plant'}
+            sizes="(min-width: 1024px) 34vw, 82vw"
+          />
+        </div>
+      </figure>
+      <figure class="about__photo about__photo--sub">
+        <div class="reveal-mask photo">
+          <Picture
+            name="operario-tuberias"
+            alt={es ? 'Técnico revisando tuberías en la planta' : 'Technician inspecting pipework at the plant'}
+            sizes="(min-width: 1024px) 18vw, 44vw"
+          />
+        </div>
+      </figure>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <dl class="stats">
+      <div class="stats__item reveal">
+        <dt class="stats__num num"><span data-count="37">37</span>+</dt>
+        <dd>{copy['about.stat1']}</dd>
+      </div>
+      <div class="stats__item reveal">
+        <dt class="stats__num num"><span data-count="7">7</span></dt>
+        <dd>{copy['about.stat2']}</dd>
+      </div>
+      <div class="stats__item reveal">
+        <dt class="stats__num num"><span data-count={productCount}>{productCount}</span></dt>
+        <dd>{copy['about.stat3']}</dd>
+      </div>
+      <div class="stats__item stats__item--place reveal">
+        <dt class="stats__num stats__num--text">MAD<span aria-hidden="true"> · </span>COL</dt>
+        <dd>{copy['about.stat4']}</dd>
+      </div>
+    </dl>
+  </div>
+</section>

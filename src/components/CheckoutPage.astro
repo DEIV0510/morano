@@ -1,0 +1,107 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from './Icon.astro';
+import { countryOptions } from '../lib/countries.ts';
+import { ROUTES, route, t, type Locale } from '../lib/i18n.ts';
+import { L, PHONE_PATTERN } from '../lib/limits.ts';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const countries = countryOptions(locale);
+const terms = `<a href="${route('terms', locale)}" target="_blank">${t(locale, 'checkout.termsLink')}</a>`;
+const privacy = `<a href="${route('privacy', locale)}" target="_blank">${t(locale, 'checkout.privacyLink')}</a>`;
+---
+
+<Base locale={locale} alternates={{ es: ROUTES.checkout.es, en: ROUTES.checkout.en }} title={`${t(locale, 'checkout.title')} | Morano Europe`} noindex>
+  <header class="page-head">
+    <div class="wrap">
+      <h1 class="h2">{t(locale, 'checkout.title')}</h1>
+    </div>
+  </header>
+  <section class="checkout wrap">
+    <form class="grid checkout__grid" data-checkout novalidate>
+      <input type="hidden" name="locale" value={locale} />
+      <div class="checkout__form">
+        <fieldset class="form-grid">
+          <legend>{t(locale, 'checkout.contact')}</legend>
+          <label class="field">
+            <span>{t(locale, 'checkout.fullName')}</span>
+            <input class="input" name="fullName" required minlength={L.name.min} maxlength={L.name.max} autocomplete="name" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.company')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+            <input class="input" name="company" maxlength={L.company.max} autocomplete="organization" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.email')}</span>
+            <input class="input" type="email" name="email" required maxlength={L.email.max} autocomplete="email" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.phone')}</span>
+            <input class="input" type="tel" name="phone" required pattern={PHONE_PATTERN} maxlength={L.phone.max} autocomplete="tel" />
+          </label>
+          <label class="field field--full">
+            <span>{t(locale, 'checkout.taxId')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+            <input class="input" name="taxId" maxlength={L.taxId.max} autocomplete="off" />
+          </label>
+        </fieldset>
+        <fieldset class="form-grid">
+          <legend>{t(locale, 'checkout.shipping')}</legend>
+          <label class="field field--full">
+            <span>{t(locale, 'checkout.address1')}</span>
+            <input class="input" name="address1" required minlength={L.address.min} maxlength={L.address.max} autocomplete="address-line1" />
+          </label>
+          <label class="field field--full">
+            <span>{t(locale, 'checkout.address2')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+            <input class="input" name="address2" maxlength={L.address.max} autocomplete="address-line2" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.postalCode')}</span>
+            <input class="input" name="postalCode" required minlength={L.postal.min} maxlength={L.postal.max} autocomplete="postal-code" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.city')}</span>
+            <input class="input" name="city" required minlength={L.city.min} maxlength={L.city.max} autocomplete="address-level2" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.region')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+            <input class="input" name="region" maxlength={L.region.max} autocomplete="address-level1" />
+          </label>
+          <label class="field">
+            <span>{t(locale, 'checkout.country')}</span>
+            <select class="input" name="country" required autocomplete="country">
+              <option value="">{t(locale, 'form.countryPick')}</option>
+              {countries.map((c) => <option value={c.code} selected={c.code === 'ES'}>{c.name}</option>)}
+            </select>
+          </label>
+          <label class="field field--full">
+            <span>{t(locale, 'checkout.notes')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+            <textarea class="input" name="notes" rows="3" maxlength={L.notes.max}></textarea>
+          </label>
+        </fieldset>
+      </div>
+
+      <aside class="checkout__summary" aria-labelledby="summary-title">
+        <h2 id="summary-title">{t(locale, 'checkout.summary')}</h2>
+        <p class="drawer__empty" data-co-empty hidden>{t(locale, 'checkout.empty')} <a class="link" href={`${route('home', locale)}#${locale === 'es' ? 'productos' : 'products'}`}>{t(locale, 'cart.emptyCta')}</a></p>
+        <ul role="list" class="cart-lines" data-co-lines aria-live="polite"></ul>
+        <p class="cart-notice" data-co-notice hidden></p>
+        <dl class="totals" data-co-totals></dl>
+        <div class="checkout__pay" data-co-pay hidden>
+          <label class="check">
+            <input type="checkbox" name="acceptTerms" value="1" required />
+            <span set:html={t(locale, 'checkout.accept', { terms, privacy })} />
+          </label>
+          <p class="form-status" data-form-status role="status" aria-live="polite"></p>
+          <button class="btn btn--block" type="submit" data-co-submit>{t(locale, 'checkout.proforma')} <Icon name="arrow" /></button>
+          <p class="checkout__pay-note" data-co-note></p>
+        </div>
+      </aside>
+    </form>
+  </section>
+  <script>
+    import '../scripts/checkout.ts';
+  </script>
+</Base>

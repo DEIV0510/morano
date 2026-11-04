@@ -1,0 +1,34 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import ProductForm from '../../../components/admin/ProductForm.astro';
+import { FormError, guard, readForm } from '../../../lib/admin.ts';
+import { parseProduct, saveProduct } from '../../../lib/admin-products.ts';
+import { audit } from '../../../lib/audit.ts';
+
+const g = guard(Astro, 'catalog:write');
+if (g instanceof Response) return g;
+const { user, session } = g;
+let flash: { kind: 'ok' | 'error'; text: string } | null = null;
+let draft: Record<string, unknown> = {};
+
+if (Astro.request.method === 'POST') {
+  try {
+    const fd = await readForm(Astro, g);
+    const p = parseProduct(fd);
+    draft = { ...p, features_es: JSON.stringify(p.features_es), features_en: JSON.stringify(p.features_en), applications_es: JSON.stringify(p.applications_es), applications_en: JSON.stringify(p.applications_en) };
+    const id = await saveProduct(null, p);
+    await audit(user, 'product.create', 'product', id, { slug: p.slug }, g.ipHash);
+    return Astro.redirect(`/admin/productos/${id}?ok=creado`, 303);
+  } catch (e) {
+    if (e instanceof FormError) flash = { kind: 'error', text: e.message };
+    else throw e;
+  }
+}
+---
+
+<Admin title="Nuevo producto" user={user} csrf={session.csrf} active="products" flash={flash}>
+  <a slot="actions" class="adm-btn adm-btn--ghost" href="/admin/productos">← Productos</a>
+  <section class="adm-card">
+    <ProductForm p={draft as any} csrf={session.csrf} />
+  </section>
+</Admin>

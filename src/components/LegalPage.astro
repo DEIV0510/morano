@@ -1,0 +1,57 @@
+---
+import Base from '../layouts/Base.astro';
+import { legalAlternates, legalDoc, LEGAL_UPDATED, type LegalKey } from '../lib/legal.ts';
+import { route, type Locale } from '../lib/i18n.ts';
+import { getSettings } from '../lib/settings.ts';
+
+interface Props {
+  locale: Locale;
+  doc: LegalKey;
+}
+const { locale, doc } = Astro.props;
+const settings = await getSettings();
+const d = legalDoc(doc, locale, settings);
+const date = new Date(LEGAL_UPDATED).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<Base locale={locale} alternates={legalAlternates(doc)} title={`${d.title} | Morano Europe`} description={`${d.title} — Morano Europe SL`}>
+  <header class="page-head">
+    <div class="wrap">
+      <ol class="breadcrumb" role="list">
+        <li><a href={route('home', locale)}>Morano Europe</a></li>
+        <li aria-current="page">{d.title}</li>
+      </ol>
+      <h1 class="h2">{d.title}</h1>
+    </div>
+  </header>
+  <article class="wrap">
+    <div class="prose">
+      {
+        d.blocks.map((b) => (
+          <>
+            <h2>{b.h}</h2>
+            {b.p?.map((p) => <p>{p}</p>)}
+            {b.ul && (
+              <ul>
+                {b.ul.map((li) => <li>{li}</li>)}
+              </ul>
+            )}
+            {b.table && (
+              <table>
+                <thead>
+                  <tr>{b.table[0].map((c) => <th scope="col">{c}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {b.table.slice(1).map((r) => (
+                    <tr>{r.map((c) => <td>{c}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        ))
+      }
+      <p class="prose-updated">{locale === 'es' ? 'Última actualización' : 'Last updated'}: {date}</p>
+    </div>
+  </article>
+</Base>
