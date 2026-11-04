@@ -1,20 +1,18 @@
 ---
 // Formulario de cotización (modal). Se abre desde cualquier botón con
 // data-quote-open; data-product="slug" preselecciona el producto.
+// Al enviar, abre WhatsApp con la solicitud ya redactada.
 import Icon from './Icon.astro';
 import { quotableProducts } from '../lib/catalog.ts';
 import { COUNTRY_CODES } from '../lib/countries.ts';
-import { route, t, type Locale } from '../lib/i18n.ts';
+import { t, type Locale } from '../lib/i18n.ts';
 import { L, PHONE_PATTERN } from '../lib/limits.ts';
-import { issueFormToken } from '../lib/security/antispam.ts';
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
 const products = await quotableProducts(locale);
-const privacy = `<a href="${route('privacy', locale)}" target="_blank">${t(locale, 'form.privacyLink')}</a>`;
-const consent = t(locale, 'form.consent', { privacy });
 ---
 
 <dialog id="quote-dialog" class="modal" aria-labelledby="quote-title">
@@ -26,12 +24,7 @@ const consent = t(locale, 'form.consent', { privacy });
       </div>
       <button class="icon-btn" type="button" data-dialog-close><Icon name="close" /><span class="visually-hidden">{t(locale, 'common.close')}</span></button>
     </div>
-    <form class="form-grid" data-form="quote" action="/api/quote" method="post" novalidate>
-      <input type="hidden" name="locale" value={locale} />
-      <input type="hidden" name="ft" value={issueFormToken()} data-form-token />
-      <div class="hp" aria-hidden="true">
-        <label>{t(locale, 'form.honeypot')}<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
-      </div>
+    <form class="form-grid" data-form="quote" novalidate>
       <label class="field">
         <span>{t(locale, 'form.fullName')}</span>
         <input class="input" name="fullName" required minlength={L.name.min} maxlength={L.name.max} autocomplete="name" />
@@ -41,12 +34,12 @@ const consent = t(locale, 'form.consent', { privacy });
         <input class="input" name="company" required minlength={L.company.min} maxlength={L.company.max} autocomplete="organization" />
       </label>
       <label class="field">
-        <span>{t(locale, 'form.email')}</span>
-        <input class="input" type="email" name="email" required maxlength={L.email.max} autocomplete="email" />
+        <span>{t(locale, 'form.email')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+        <input class="input" type="email" name="email" maxlength={L.email.max} autocomplete="email" />
       </label>
       <label class="field">
-        <span>{t(locale, 'form.phone')}</span>
-        <input class="input" type="tel" name="phone" required pattern={PHONE_PATTERN} maxlength={L.phone.max} autocomplete="tel" />
+        <span>{t(locale, 'form.phone')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+        <input class="input" type="tel" name="phone" pattern={PHONE_PATTERN} maxlength={L.phone.max} autocomplete="tel" />
       </label>
       <label class="field">
         <span>{t(locale, 'form.country')}</span>
@@ -58,8 +51,8 @@ const consent = t(locale, 'form.consent', { privacy });
       <label class="field">
         <span>{t(locale, 'form.product')}</span>
         <select class="input" name="product" required data-quote-product>
-          {products.map((p) => <option value={p.slug}>{p.code} — {p.name}</option>)}
-          <option value="other">{t(locale, 'form.productOther')}</option>
+          {products.map((p) => <option value={`${p.code} — ${p.name}`} data-slug={p.slug}>{p.code} — {p.name}</option>)}
+          <option value={t(locale, 'form.productOther')} data-slug="other">{t(locale, 'form.productOther')}</option>
         </select>
       </label>
       <label class="field field--full">
@@ -70,20 +63,19 @@ const consent = t(locale, 'form.consent', { privacy });
         <span>{t(locale, 'form.needs')} <span class="opt">({t(locale, 'common.optional')})</span></span>
         <textarea class="input" name="needs" rows="4" maxlength={L.needs.max}></textarea>
       </label>
-      <label class="check field--full">
-        <input type="checkbox" name="consent" value="1" required />
-        <span set:html={consent} />
-      </label>
       <div class="form-actions field--full">
-        <p class="form-status" data-form-status role="status" aria-live="polite"></p>
-        <button class="btn" type="submit">{t(locale, 'quote.submit')} <Icon name="arrow" /></button>
+        <p class="form-status" data-form-status role="status" aria-live="polite">{t(locale, 'form.whatsappNote')}</p>
+        <button class="btn" type="submit">{t(locale, 'quote.submit')} <Icon name="whatsapp" size={18} /></button>
       </div>
     </form>
     <div class="form-done" data-form-done hidden tabindex="-1">
       <span class="form-done__icon"><Icon name="check" size={28} /></span>
-      <h3 class="h3">{t(locale, 'quote.success')}</h3>
-      <p class="muted" data-form-done-text></p>
-      <button class="btn btn--outline" type="button" data-dialog-close>{t(locale, 'common.close')}</button>
+      <h3 class="h3">{t(locale, 'form.sentTitle')}</h3>
+      <p class="muted">{t(locale, 'form.sentText')}</p>
+      <div class="adm-inline">
+        <a class="btn" href="#" data-wa-again target="_blank" rel="noopener">{t(locale, 'form.openAgain')}</a>
+        <button class="btn btn--outline" type="button" data-dialog-close>{t(locale, 'common.close')}</button>
+      </div>
     </div>
   </div>
 </dialog>

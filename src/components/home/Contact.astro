@@ -1,10 +1,9 @@
 ---
 import Icon from '../Icon.astro';
-import { contact } from '../../lib/config.ts';
+import { contact, whatsappUrl } from '../../lib/config.ts';
 import { countryOptions } from '../../lib/countries.ts';
-import { route, SECTIONS, t, type Locale } from '../../lib/i18n.ts';
+import { SECTIONS, t, type Locale } from '../../lib/i18n.ts';
 import { L, PHONE_PATTERN } from '../../lib/limits.ts';
-import { issueFormToken } from '../../lib/security/antispam.ts';
 import type { CopyMap } from '../../lib/copy.ts';
 import { getSettings } from '../../lib/settings.ts';
 
@@ -15,8 +14,7 @@ interface Props {
 const { locale, copy } = Astro.props;
 const settings = await getSettings();
 const countries = countryOptions(locale);
-const wa = `https://wa.me/${contact.whatsappDigits}?text=${encodeURIComponent(t(locale, 'whatsapp.message'))}`;
-const privacy = `<a href="${route('privacy', locale)}" target="_blank">${t(locale, 'form.privacyLink')}</a>`;
+const wa = whatsappUrl(t(locale, 'whatsapp.message'));
 const es = locale === 'es';
 ---
 
@@ -63,12 +61,7 @@ const es = locale === 'es';
     </div>
 
     <div class="contact__form-wrap">
-      <form class="form-grid contact__form" data-form="contact" action="/api/contact" method="post" novalidate>
-        <input type="hidden" name="locale" value={locale} />
-        <input type="hidden" name="ft" value={issueFormToken()} data-form-token />
-        <div class="hp" aria-hidden="true">
-          <label>{t(locale, 'form.honeypot')}<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
-        </div>
+      <form class="form-grid contact__form" data-form="contact" novalidate>
         <label class="field">
           <span>{t(locale, 'form.fullName')}</span>
           <input class="input" name="fullName" required minlength={L.name.min} maxlength={L.name.max} autocomplete="name" />
@@ -78,8 +71,8 @@ const es = locale === 'es';
           <input class="input" name="company" maxlength={L.company.max} autocomplete="organization" />
         </label>
         <label class="field">
-          <span>{t(locale, 'form.email')}</span>
-          <input class="input" type="email" name="email" required maxlength={L.email.max} autocomplete="email" />
+          <span>{t(locale, 'form.email')} <span class="opt">({t(locale, 'common.optional')})</span></span>
+          <input class="input" type="email" name="email" maxlength={L.email.max} autocomplete="email" />
         </label>
         <label class="field">
           <span>{t(locale, 'form.phone')} <span class="opt">({t(locale, 'common.optional')})</span></span>
@@ -89,26 +82,23 @@ const es = locale === 'es';
           <span>{t(locale, 'form.country')} <span class="opt">({t(locale, 'common.optional')})</span></span>
           <select class="input" name="country" autocomplete="country">
             <option value="">{t(locale, 'form.countryPick')}</option>
-            {countries.map((c) => <option value={c.code}>{c.name}</option>)}
+            {countries.map((c) => <option value={c.name}>{c.name}</option>)}
           </select>
         </label>
         <label class="field field--full">
           <span>{t(locale, 'form.message')}</span>
           <textarea class="input" name="message" rows="5" required minlength={L.message.min} maxlength={L.message.max}></textarea>
         </label>
-        <label class="check field--full">
-          <input type="checkbox" name="consent" value="1" required />
-          <span set:html={t(locale, 'form.consent', { privacy })} />
-        </label>
         <div class="form-actions field--full">
-          <p class="form-status" data-form-status role="status" aria-live="polite"></p>
-          <button class="btn" type="submit">{t(locale, 'contact.submit')} <Icon name="arrow" /></button>
+          <p class="form-status" data-form-status role="status" aria-live="polite">{t(locale, 'form.whatsappNote')}</p>
+          <button class="btn" type="submit">{t(locale, 'contact.submit')} <Icon name="whatsapp" size={18} /></button>
         </div>
       </form>
       <div class="form-done" data-form-done hidden tabindex="-1">
         <span class="form-done__icon"><Icon name="check" size={28} /></span>
-        <h3 class="h3">{t(locale, 'contact.success')}</h3>
-        <p class="muted" data-form-done-text></p>
+        <h3 class="h3">{t(locale, 'form.sentTitle')}</h3>
+        <p class="muted">{t(locale, 'form.sentText')}</p>
+        <a class="btn btn--outline" href="#" data-wa-again target="_blank" rel="noopener">{t(locale, 'form.openAgain')}</a>
       </div>
     </div>
   </div>

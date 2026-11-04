@@ -12,6 +12,7 @@ import { config, contact } from '../lib/config.ts';
 import { clientStrings, htmlLang, ogLocale, route, t, type Locale } from '../lib/i18n.ts';
 import { getCopy } from '../lib/content.ts';
 import { getSettings } from '../lib/settings.ts';
+import { shopData } from '../lib/catalog.ts';
 
 interface Props {
   locale: Locale;
@@ -45,9 +46,6 @@ const canonical = site + alternates[locale];
 const copy = await getCopy(locale);
 const settings = await getSettings();
 
-// Pantalla de carga solo en la primera portada vista de la sesión (cookie en el middleware).
-const firstVisit = showLoader && Astro.locals.firstVisit === true;
-
 const organization = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -69,13 +67,21 @@ const organization = {
 };
 const ld = [organization, ...jsonLd];
 const ldJson = JSON.stringify(ld.length === 1 ? ld[0] : ld).replace(/</g, '\\u003c');
-const i18nJson = JSON.stringify({ locale, strings: clientStrings(locale), checkout: route('checkout', locale), home: route('home', locale) }).replace(/</g, '\\u003c');
+const i18nJson = JSON.stringify({
+  locale,
+  strings: clientStrings(locale),
+  home: route('home', locale),
+  whatsapp: contact.whatsappDigits,
+  shop: { items: shopData(locale), vatBp: settings.vatRateBp, vatIncluded: settings.pricesIncludeVat, shipping: settings.shippingCents, freeFrom: settings.freeShippingFromCents },
+}).replace(/</g, '\\u003c');
 ---
 
 <!doctype html>
-<html lang={htmlLang(locale)} class:list={[pageClass, { 'has-loader': firstVisit }]}>
+<html lang={htmlLang(locale)} class={pageClass}>
   <head>
     <meta charset="utf-8" />
+    {/* Pantalla de carga solo la primera vez en la sesión: se decide antes del primer pintado. */}
+    {showLoader && <script is:inline src="/intro.js"></script>}
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title}</title>
     <meta name="description" content={description} />
@@ -110,7 +116,7 @@ const i18nJson = JSON.stringify({ locale, strings: clientStrings(locale), checko
   <body data-overlay-header={overlayHeader ? 'true' : undefined}>
     <LogoSprite />
     <a class="skip-link" href="#main">{t(locale, 'nav.skip')}</a>
-    {firstVisit && <Loader locale={locale} />}
+    {showLoader && <Loader locale={locale} />}
     <Header locale={locale} alternates={alternates} overlay={overlayHeader} />
     <main id="main" tabindex="-1">
       <slot />

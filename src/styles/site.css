@@ -2300,3 +2300,8 @@
 .pdp__info .buy__actions .link {
   display: none;
 }
+
+/* Pantalla de carga ya vista en esta sesión */
+.intro-seen .loader {
+  display: none;
+}

@@ -4,9 +4,8 @@ import { AJUSTES } from '../data/ajustes.ts';
 export interface Settings {
   vatRateBp: number; // IVA en puntos básicos (2100 = 21 %)
   pricesIncludeVat: boolean;
-  shippingCents: number | null; // null = envío sin configurar → pedido con proforma
+  shippingCents: number | null; // null = se confirma por WhatsApp
   freeShippingFromCents: number | null;
-  cardPaymentsEnabled: boolean; // requiere además las claves de Stripe
   legalName: string;
   taxId: string;
   registry: string;
@@ -21,7 +20,6 @@ export function settingsFrom(a: typeof AJUSTES): Settings {
     pricesIncludeVat: a.preciosConIva,
     shippingCents: euros(a.envio),
     freeShippingFromCents: euros(a.envioGratisDesde),
-    cardPaymentsEnabled: a.pagoConTarjeta,
     legalName: a.razonSocial,
     taxId: a.nif.trim(),
     registry: a.registroMercantil.trim(),

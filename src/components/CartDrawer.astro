@@ -1,6 +1,6 @@
 ---
-// Panel lateral del carrito. El contenido lo pinta cart.ts con los importes
-// que devuelve el servidor (/api/cart): el navegador nunca calcula precios.
+// Panel lateral del carrito. El pedido se envía por WhatsApp con los
+// productos, cantidades y total estimado; el equipo comercial lo confirma.
 import Icon from './Icon.astro';
 import { route, SECTIONS, t, type Locale } from '../lib/i18n.ts';
 interface Props {
@@ -21,11 +21,11 @@ const { locale } = Astro.props;
         <a class="link" href={`${route('home', locale)}#${SECTIONS[locale].products}`} data-dialog-close>{t(locale, 'cart.emptyCta')}</a>
       </p>
       <ul role="list" class="cart-lines" data-cart-lines></ul>
-      <p class="cart-notice" data-cart-notice hidden></p>
     </div>
     <div class="drawer__foot" data-cart-foot hidden>
       <dl class="totals" data-cart-totals></dl>
-      <a class="btn btn--block" href={route('checkout', locale)}>{t(locale, 'cart.checkout')} <Icon name="arrow" /></a>
+      <button class="btn btn--block" type="button" data-cart-send>{t(locale, 'cart.send')} <Icon name="whatsapp" size={18} /></button>
+      <p class="checkout__pay-note">{t(locale, 'cart.sendNote')}</p>
       <button class="link drawer__continue" type="button" data-dialog-close>{t(locale, 'cart.continue')}</button>
     </div>
   </div>

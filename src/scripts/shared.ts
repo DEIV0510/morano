@@ -1,41 +1,39 @@
 // Utilidades compartidas por los scripts del navegador.
+export interface ShopItem {
+  n: string; // producto
+  l: string; // presentación
+  p: number; // precio en céntimos
+}
+
 export interface I18n {
   locale: 'es' | 'en';
   strings: Record<string, string>;
-  checkout: string;
   home: string;
+  whatsapp: string;
+  shop: { items: Record<string, ShopItem>; vatBp: number; vatIncluded: boolean; shipping: number | null; freeFrom: number | null };
 }
 
 let cached: I18n | undefined;
 export function i18n(): I18n {
   if (cached) return cached;
   const el = document.getElementById('me-i18n');
-  cached = el ? (JSON.parse(el.textContent || '{}') as I18n) : { locale: 'es', strings: {}, checkout: '/es/finalizar-compra', home: '/es/' };
+  cached = JSON.parse(el?.textContent || '{}') as I18n;
   return cached;
 }
 
-export const tr = (key: string, vars: Record<string, string> = {}) => {
-  let s = i18n().strings[key] ?? key;
-  for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
-  return s;
-};
+export const tr = (key: string) => i18n().strings[key] ?? key;
 
 export const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export async function postJson<T = any>(url: string, body: unknown): Promise<{ status: number; data: T }> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
-    credentials: 'same-origin',
-  });
-  let data: any = {};
-  try {
-    data = await res.json();
-  } catch {
-    /* respuesta sin JSON */
-  }
-  return { status: res.status, data };
+export const whatsappUrl = (text: string) => `https://wa.me/${i18n().whatsapp}?text=${encodeURIComponent(text)}`;
+
+/** Abre WhatsApp en otra pestaña; si el navegador lo bloquea, en la misma. */
+export function openWhatsApp(text: string): string {
+  const url = whatsappUrl(text);
+  const w = window.open(url, '_blank');
+  if (w) w.opener = null;
+  else location.href = url;
+  return url;
 }
 
 /** Abre un <dialog> modal y devuelve el foco al disparador al cerrar. */

@@ -1,5 +1,5 @@
 // Interacciones del sitio público. Sin dependencias.
-import { openDialog, postJson, reduceMotion, tr } from './shared.ts';
+import { openDialog, openWhatsApp, reduceMotion, tr } from './shared.ts';
 
 const html = document.documentElement;
 html.classList.add('js');
@@ -7,7 +7,8 @@ const reduce = reduceMotion();
 
 /* ── Pantalla de carga: sale cuando la imagen principal está lista ── */
 const loader = document.querySelector<HTMLElement>('[data-loader]');
-if (loader) {
+if (loader && html.classList.contains('intro-seen')) loader.remove();
+else if (loader) {
   const heroImg = document.querySelector<HTMLImageElement>('[data-hero-img]');
   const elapsed = performance.now();
   const ready = heroImg && !heroImg.complete ? heroImg.decode().catch(() => undefined) : Promise.resolve();
@@ -81,7 +82,7 @@ function fillCountries(select: HTMLSelectElement | null) {
     .filter(Boolean)
     .map((code) => ({ code, name: names.of(code) || code }))
     .sort((a, b) => a.name.localeCompare(b.name, loc));
-  for (const o of opts) select.add(new Option(o.name, o.code));
+  for (const o of opts) select.add(new Option(o.name, o.name));
 }
 
 function prepareQuote(trigger: HTMLElement) {
@@ -96,7 +97,8 @@ function prepareQuote(trigger: HTMLElement) {
   }
   const slug = trigger.dataset.product;
   const select = quote.querySelector<HTMLSelectElement>('[data-quote-product]');
-  if (select && slug && [...select.options].some((o) => o.value === slug)) select.value = slug;
+  const opt = slug ? [...(select?.options ?? [])].find((o) => o.dataset.slug === slug) : undefined;
+  if (select && opt) select.value = opt.value;
   // "Consultar precio" desde un producto: rellena el volumen con la selección actual.
   const buy = trigger.closest<HTMLElement>('[data-buy]');
   const vol = quote.querySelector<HTMLInputElement>('[data-quote-volume]');
@@ -223,12 +225,28 @@ if (navLinks.length && document.body.dataset.overlayHeader === 'true') {
   });
 }
 
-/* ── Formularios de cotización y contacto ── */
+/* ── Formularios de cotización y contacto: abren WhatsApp con el mensaje redactado ── */
+const FIELDS: Record<'quote' | 'contact', string[]> = {
+  quote: ['product', 'volume', 'needs', 'fullName', 'company', 'country', 'email', 'phone'],
+  contact: ['message', 'fullName', 'company', 'country', 'email', 'phone'],
+};
+const LABEL: Record<string, string> = {
+  product: 'form.product',
+  volume: 'form.volume',
+  needs: 'form.needs',
+  message: 'form.message',
+  fullName: 'form.fullName',
+  company: 'form.company',
+  country: 'form.country',
+  email: 'form.email',
+  phone: 'form.phone',
+};
+
 document.querySelectorAll<HTMLFormElement>('form[data-form]').forEach((form) => {
   const status = form.querySelector<HTMLElement>('[data-form-status]');
-  const wrap = form.parentElement!;
-  const done = wrap.querySelector<HTMLElement>('[data-form-done]');
-  const doneText = wrap.querySelector<HTMLElement>('[data-form-done-text]');
+  const note = status?.textContent ?? '';
+  const done = form.parentElement!.querySelector<HTMLElement>('[data-form-done]');
+  const again = done?.querySelector<HTMLAnchorElement>('[data-wa-again]');
   const kind = form.dataset.form as 'quote' | 'contact';
 
   form.addEventListener('input', (e) => {
@@ -236,70 +254,35 @@ document.querySelectorAll<HTMLFormElement>('form[data-form]').forEach((form) => 
     if (f.getAttribute('aria-invalid') === 'true' && f.checkValidity()) f.removeAttribute('aria-invalid');
   });
 
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const setStatus = (msg: string, kindMsg: 'error' | 'info' = 'info') => {
-      if (!status) return;
-      status.textContent = msg;
-      status.dataset.kind = kindMsg;
-    };
-    const fields = [...form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea')].filter(
-      (f) => f.name && f.type !== 'hidden' && !f.closest('.hp')
-    );
     let firstBad: HTMLElement | null = null;
-    for (const f of fields) {
-      const ok = f.checkValidity();
-      if (ok) f.removeAttribute('aria-invalid');
+    form.querySelectorAll<HTMLInputElement>('input, select, textarea').forEach((f) => {
+      if (!f.name) return;
+      if (f.checkValidity()) f.removeAttribute('aria-invalid');
       else {
         f.setAttribute('aria-invalid', 'true');
         firstBad ??= f;
       }
+    });
+    if (status) {
+      status.textContent = firstBad ? tr('form.error') : note;
+      status.dataset.kind = firstBad ? 'error' : 'info';
     }
-    if (firstBad) {
-      setStatus(tr('form.error'), 'error');
-      firstBad.focus();
-      return;
-    }
+    if (firstBad) return (firstBad as HTMLElement).focus();
 
     const fd = new FormData(form);
-    const body: Record<string, unknown> = {};
-    fd.forEach((v, k) => (body[k] = typeof v === 'string' ? v : ''));
-    body.consent = fd.get('consent') === '1';
-    const btn = form.querySelector<HTMLButtonElement>('button[type=submit]');
-    const label = btn?.innerHTML ?? '';
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = tr('common.sending');
-    }
-    setStatus('');
-    try {
-      const { status: code, data } = await postJson(form.action, body);
-      if (code === 200 && data.ok) {
-        if (doneText) doneText.textContent = tr(kind === 'quote' ? 'quote.successText' : 'contact.successText', { ref: data.ref });
-        form.hidden = true;
-        if (done) {
-          done.hidden = false;
-          done.focus();
-        }
-        form.reset();
-        return;
-      }
-      if (code === 422 && data.fields) {
-        for (const name of Object.keys(data.fields)) {
-          const f = form.elements.namedItem(name.split('.')[0]);
-          if (f instanceof HTMLElement) f.setAttribute('aria-invalid', 'true');
-        }
-        setStatus(tr('form.error'), 'error');
-      } else if (code === 429) setStatus(tr('form.errorRate'), 'error');
-      else if (code === 400 && data.error === 'spam') setStatus(tr('form.errorSpam'), 'error');
-      else setStatus(tr('form.errorServer'), 'error');
-    } catch {
-      setStatus(tr('form.errorServer'), 'error');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = label;
-      }
+    const lines = FIELDS[kind]
+      .map((name) => [name, String(fd.get(name) ?? '').trim()] as const)
+      .filter(([, v]) => v)
+      .map(([name, v]) => (name === 'needs' || name === 'message' ? `\n${v}\n` : `${tr(LABEL[name])}: ${v}`));
+    const text = [tr(kind === 'quote' ? 'wa.quote' : 'wa.contact'), '', ...lines].join('\n').replace(/\n{3,}/g, '\n\n');
+    const url = openWhatsApp(text);
+    if (again) again.href = url;
+    form.hidden = true;
+    if (done) {
+      done.hidden = false;
+      done.focus();
     }
   });
 });

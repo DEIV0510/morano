@@ -1,6 +1,7 @@
 // Módulos de compra (presentación, cantidad, precio) y panel del carrito.
 import * as cart from './cart-store.ts';
-import { esc, i18n, openDialog, tr } from './shared.ts';
+import { esc, i18n, openDialog, openWhatsApp, tr } from './shared.ts';
+import { formatMoney } from '../lib/pricing.ts';
 
 const { locale } = i18n();
 const drawer = document.getElementById('cart-drawer') as HTMLDialogElement | null;
@@ -70,67 +71,33 @@ document.querySelectorAll<HTMLElement>('[data-buy]').forEach((buy) => {
   sync();
 });
 
+
 /* ── Panel del carrito ── */
-const body = drawer?.querySelector<HTMLElement>('[data-cart-body]');
 const linesEl = drawer?.querySelector<HTMLUListElement>('[data-cart-lines]');
 const emptyEl = drawer?.querySelector<HTMLElement>('[data-cart-empty]');
 const footEl = drawer?.querySelector<HTMLElement>('[data-cart-foot]');
 const totalsEl = drawer?.querySelector<HTMLElement>('[data-cart-totals]');
-const noticeEl = drawer?.querySelector<HTMLElement>('[data-cart-notice]');
+const money = (c: number) => formatMoney(c, locale);
+const rate = (bp: number) => `${(bp / 100).toLocaleString(locale)} %`;
 
-export function totalsHtml(t: cart.PricedResponse['totals']) {
-  const shipping = t.shipping === null ? tr('cart.shippingPending') : t.shippingFree ? tr('cart.shippingFree') : t.shipping;
-  return `
-    <dt>${esc(tr('cart.subtotal'))}</dt><dd class="num">${esc(t.subtotal)}</dd>
-    <dt>${esc(tr('cart.shipping'))}</dt><dd>${esc(shipping)}</dd>
-    <dt>${esc(t.vatIncluded ? tr('cart.vatIncludedLine') : tr('cart.vat'))} (${esc(t.vatRate)})</dt><dd class="num">${esc(t.vat)}</dd>
-    <dt class="totals__total">${esc(tr('cart.total'))}</dt><dd class="totals__total num">${esc(t.total)}</dd>`;
+function shippingText(s: number | null) {
+  return s === null ? tr('cart.shippingPending') : s === 0 ? tr('cart.shippingFree') : money(s);
 }
 
-let pending = 0;
-async function refresh() {
-  if (!drawer || !linesEl) return;
-  const items = cart.load();
-  if (!items.length) return paint(null);
-  const ticket = ++pending;
-  body?.setAttribute('aria-busy', 'true');
-  try {
-    const data = await cart.price(locale);
-    if (ticket !== pending) return;
-    if (!data) {
-      if (noticeEl) {
-        noticeEl.hidden = false;
-        noticeEl.textContent = tr('cart.error');
-      }
-      return;
-    }
-    paint(data);
-  } catch {
-    if (noticeEl) {
-      noticeEl.hidden = false;
-      noticeEl.textContent = tr('cart.error');
-    }
-  } finally {
-    body?.removeAttribute('aria-busy');
-  }
-}
-
-function paint(data: cart.PricedResponse | null) {
-  if (!linesEl || !emptyEl || !footEl || !totalsEl || !noticeEl) return;
-  const lines = data?.lines ?? [];
-  emptyEl.hidden = lines.length > 0;
-  footEl.hidden = lines.length === 0;
-  noticeEl.hidden = !data?.issues.length;
-  if (data?.issues.length) noticeEl.textContent = tr('cart.updated');
-  linesEl.innerHTML = lines
+function paint() {
+  if (!linesEl || !emptyEl || !footEl || !totalsEl) return;
+  const p = cart.priced();
+  emptyEl.hidden = p.lines.length > 0;
+  footEl.hidden = p.lines.length === 0;
+  linesEl.innerHTML = p.lines
     .map(
       (l) => `
       <li class="cart-line" data-sku="${esc(l.sku)}">
         <div>
-          <p class="cart-line__name">${esc(l.productCode)} — ${esc(l.productName)}</p>
-          <p class="cart-line__meta">${esc(l.variantLabel)} · ${esc(l.unit)}</p>
+          <p class="cart-line__name">${esc(l.name)}</p>
+          <p class="cart-line__meta">${esc(l.label)} · ${esc(money(l.unitCents))}</p>
         </div>
-        <p class="cart-line__total num">${esc(l.total)}</p>
+        <p class="cart-line__total num">${esc(money(l.lineCents))}</p>
         <div class="cart-line__controls">
           <div class="qty">
             <button type="button" class="qty__btn" data-line-dec aria-label="${esc(tr('shop.decrease'))}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="1.5"/></svg></button>
@@ -142,48 +109,62 @@ function paint(data: cart.PricedResponse | null) {
       </li>`
     )
     .join('');
-  if (data) totalsEl.innerHTML = totalsHtml(data.totals);
+  totalsEl.innerHTML = `
+    <dt>${esc(tr('cart.subtotal'))}</dt><dd class="num">${esc(money(p.subtotal))}</dd>
+    <dt>${esc(tr('cart.shipping'))}</dt><dd>${esc(shippingText(p.shipping))}</dd>
+    <dt>${esc(p.vatIncluded ? tr('cart.vatIncludedLine') : tr('cart.vat'))} (${esc(rate(p.vatBp))})</dt><dd class="num">${esc(money(p.vatCents))}</dd>
+    <dt class="totals__total">${esc(tr('cart.total'))}</dt><dd class="totals__total num">${esc(money(p.totalCents))}</dd>`;
 }
 
-let debounce = 0;
+/** Mensaje de WhatsApp con el pedido. */
+function orderMessage() {
+  const p = cart.priced();
+  const lines = p.lines.map((l) => `• ${l.qty} × ${l.name} (${l.label}) — ${money(l.lineCents)}`);
+  return [
+    tr('wa.order'),
+    '',
+    ...lines,
+    '',
+    `${tr('cart.subtotal')}: ${money(p.subtotal)}`,
+    `${tr('cart.shipping')}: ${shippingText(p.shipping)}`,
+    `${tr('cart.total')}: ${money(p.totalCents)} (${p.vatIncluded ? tr('cart.vatIncludedLine') : `${tr('cart.vat')} ${rate(p.vatBp)}`})`,
+  ].join('\n');
+}
+
+drawer?.querySelector('[data-cart-send]')?.addEventListener('click', () => {
+  if (cart.priced().lines.length) openWhatsApp(orderMessage());
+});
+
 linesEl?.addEventListener('click', (e) => {
   const t = e.target as HTMLElement;
   const li = t.closest<HTMLElement>('[data-sku]');
   if (!li) return;
-  const id = li.dataset.sku!;
+  const sku = li.dataset.sku!;
   const input = li.querySelector<HTMLInputElement>('[data-line-qty]')!;
-  const max = Number(input.max) || 999;
   if (t.closest('[data-line-remove]')) {
-    cart.remove(id);
-    refresh();
-    return;
+    cart.remove(sku);
+    return paint();
   }
   const delta = t.closest('[data-line-inc]') ? 1 : t.closest('[data-line-dec]') ? -1 : 0;
   if (!delta) return;
-  const next = Math.min(max, Math.max(0, Number(input.value) + delta));
-  input.value = String(next);
-  if (next === 0) {
-    cart.remove(id);
-    refresh();
-    return;
-  }
-  cart.setQty(id, next);
-  clearTimeout(debounce);
-  debounce = window.setTimeout(refresh, 350);
+  const next = Math.min(999, Math.max(0, Number(input.value) + delta));
+  if (next === 0) cart.remove(sku);
+  else cart.setQty(sku, next);
+  paint();
 });
 linesEl?.addEventListener('change', (e) => {
   const input = e.target as HTMLInputElement;
   if (!input.matches('[data-line-qty]')) return;
   const li = input.closest<HTMLElement>('[data-sku]')!;
   const v = Math.round(Number(input.value));
-  cart.setQty(li.dataset.sku!, Number.isFinite(v) ? Math.min(Number(input.max) || 999, Math.max(0, v)) : 1);
-  refresh();
+  cart.setQty(li.dataset.sku!, Number.isFinite(v) ? Math.min(999, Math.max(0, v)) : 1);
+  paint();
 });
 
 function openDrawer(trigger?: Element | null) {
   if (!drawer) return;
+  paint();
   openDialog(drawer, trigger);
-  refresh();
 }
 
 document.addEventListener('click', (e) => {

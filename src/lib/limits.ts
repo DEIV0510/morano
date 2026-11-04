@@ -1,5 +1,5 @@
 // Límites de los campos de formulario. Se usan en el HTML (maxlength, min,
-// max) y en las validaciones del servidor, para que ambos coincidan.
+// max) de los formularios.
 export const L = {
   name: { min: 2, max: 120 },
   company: { min: 2, max: 160 },

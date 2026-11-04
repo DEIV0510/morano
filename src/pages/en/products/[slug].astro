@@ -1,8 +1,11 @@
 ---
 import ProductPage from '../../../components/ProductPage.astro';
-import { productExists } from '../../../lib/catalog.ts';
-const { slug = '' } = Astro.params;
-if (!(await productExists(slug))) Astro.response.status = 404;
+import { CATALOGO } from '../../../data/catalogo.ts';
+
+export function getStaticPaths() {
+  return CATALOGO.map((p) => ({ params: { slug: p.slug } }));
+}
+const { slug } = Astro.params;
 ---
 
 <ProductPage locale="en" slug={slug} />

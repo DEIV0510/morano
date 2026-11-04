@@ -56,11 +56,15 @@ export async function quotableProducts(locale: Locale) {
     .map((p) => ({ slug: p.slug, code: p.code, name: p.name[locale] }));
 }
 
-/** Búsqueda de una presentación por SKU (para precios y pedidos). */
-export function findVariant(sku: string, catalog: ProductoDef[] = CATALOGO) {
-  for (const p of catalog) {
-    const v = p.presentaciones?.find((x) => x.sku === sku);
-    if (v) return { product: p, variant: v };
+/** Datos mínimos de la tienda para el carrito del navegador (SKU → nombre y precio). */
+export function shopData(locale: Locale) {
+  const items: Record<string, { n: string; l: string; p: number }> = {};
+  for (const p of CATALOGO) {
+    if (p.kind !== 'direct') continue;
+    for (const v of p.presentaciones ?? []) {
+      const cents = euros(v.precio);
+      if (cents) items[v.sku] = { n: `${p.code} — ${p.name[locale]}`, l: v.etiqueta, p: cents };
+    }
   }
-  return undefined;
+  return items;
 }

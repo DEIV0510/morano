@@ -1,0 +1,112 @@
+{
+  "planta-linea-proceso": {
+    "width": 1280,
+    "height": 853,
+    "widths": [
+      640,
+      960,
+      1280
+    ],
+    "color": "#080808",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.46 AM (1).jpeg"
+  },
+  "operario-flujo-aceite": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#080808",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.46 AM (2).jpeg"
+  },
+  "operario-muestra-aceite": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#182828",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.46 AM.jpeg"
+  },
+  "ensacado-planta": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#382828",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM.jpeg"
+  },
+  "cultivo-racimo": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#383828",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM (2).jpeg"
+  },
+  "muestra-aceite": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#383838",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM (3).jpeg"
+  },
+  "planta-maquinaria": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#181818",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM (4).jpeg"
+  },
+  "cultivo-cosecha": {
+    "width": 1280,
+    "height": 853,
+    "widths": [
+      640,
+      960,
+      1280
+    ],
+    "color": "#384828",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM (5).jpeg"
+  },
+  "operario-tuberias": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#282828",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM (6).jpeg"
+  },
+  "tanques-almacenamiento": {
+    "width": 853,
+    "height": 1280,
+    "widths": [
+      420,
+      640,
+      853
+    ],
+    "color": "#886848",
+    "source": "WhatsApp Image 2026-11-03 at 9.54.47 AM (7).jpeg"
+  }
+}

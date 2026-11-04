@@ -4,7 +4,7 @@
 
 **«Marcos que conectan».** El logotipo oficial de Morano Europe SL son cuatro rectángulos superpuestos y entrelazados (azul, dorado, gris y gris claro). Ese gesto —piezas distintas que encajan— es la idea de la plataforma: cultivo, planta, comercio y mercados unidos en una misma cadena. El sitio lo traduce a lenguaje gráfico:
 
-- **Pantalla de carga**: los cuatro marcos se dibujan en el orden de capas del logo y aparece el nombre; la cortina sube hacia la portada. Solo en la primera visita de la sesión y sale en cuanto la foto principal está lista.
+- **Pantalla de carga**: los cuatro marcos se dibujan en el orden de capas del logo y aparece el nombre; la cortina sube hacia la portada. Solo la primera vez por sesión y sale en cuanto la foto principal está lista.
 - **Marcos desplazados**: las fotografías clave llevan un marco dorado de 1 px desplazado, como los rectángulos del logo.
 - **Máscaras rectangulares**: las fotos de la galería se revelan con un barrido de recorte rectangular.
 - **Esquinas rectas** en todo el sistema: seriedad industrial.
