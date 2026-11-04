@@ -5,7 +5,6 @@ export const GET: APIRoute = () =>
   new Response(
     `User-agent: *
 Allow: /
-Disallow: /admin
 Disallow: /api/
 Disallow: /es/finalizar-compra
 Disallow: /en/checkout

@@ -998,10 +998,6 @@
   outline: 2px solid var(--gold);
   outline-offset: -4px;
 }
-.size--off span {
-  color: var(--silver);
-  text-decoration: line-through;
-}
 .buy__row {
   display: flex;
   flex-wrap: wrap;
@@ -1060,11 +1056,6 @@
 .buy__note {
   font-size: 0.75rem;
   color: var(--gray-ink);
-}
-.buy__stock {
-  font-size: var(--fs-small);
-  color: var(--gold-ink);
-  font-weight: 500;
 }
 .buy__actions {
   display: flex;

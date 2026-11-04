@@ -17,7 +17,7 @@ renderCount();
 cart.onChange(renderCount);
 // Sincroniza entre pestañas abiertas.
 addEventListener('storage', (e) => {
-  if (e.key === 'morano_cart_v1') renderCount();
+  if (e.key === 'morano_cart_v2') renderCount();
 });
 
 /* ── Módulos de compra ── */
@@ -26,35 +26,25 @@ document.querySelectorAll<HTMLElement>('[data-buy]').forEach((buy) => {
   const qty = buy.querySelector<HTMLInputElement>('[data-qty]')!;
   const price = buy.querySelector<HTMLElement>('[data-price-display]')!;
   const note = buy.querySelector<HTMLElement>('[data-price-note]')!;
-  const stock = buy.querySelector<HTMLElement>('[data-stock-note]')!;
   const addBtn = buy.querySelector<HTMLButtonElement>('[data-add-to-cart]')!;
   const askBtn = buy.querySelector<HTMLButtonElement>('[data-ask-price]')!;
   const added = buy.querySelector<HTMLElement>('[data-added]')!;
 
   const selected = () => radios.find((r) => r.checked);
-  const max = () => {
-    const s = selected()?.dataset.stock;
-    return s ? Math.max(1, Math.min(999, Number(s))) : 999;
-  };
   const clampQty = () => {
     const v = Math.round(Number(qty.value));
-    qty.value = String(Number.isFinite(v) ? Math.min(max(), Math.max(1, v)) : 1);
+    qty.value = String(Number.isFinite(v) ? Math.min(999, Math.max(1, v)) : 1);
   };
 
   function sync() {
     const r = selected();
     if (!r) return;
     const hasPrice = Boolean(r.dataset.price);
-    const available = !r.disabled;
     price.textContent = r.dataset.priceLabel || '';
     note.hidden = !hasPrice;
-    addBtn.hidden = !(hasPrice && available);
-    askBtn.hidden = hasPrice && available;
-    qty.max = String(max());
+    addBtn.hidden = !hasPrice;
+    askBtn.hidden = hasPrice;
     clampQty();
-    const low = r.dataset.low === '1';
-    stock.hidden = !low;
-    stock.textContent = low ? stock.dataset.lowText || '' : '';
     added.textContent = '';
   }
 
@@ -71,9 +61,9 @@ document.querySelectorAll<HTMLElement>('[data-buy]').forEach((buy) => {
 
   addBtn.addEventListener('click', () => {
     const r = selected();
-    if (!r || r.disabled || !r.dataset.price) return;
+    if (!r || !r.dataset.price) return;
     clampQty();
-    cart.add(Number(r.value), Number(qty.value));
+    cart.add(r.value, Number(qty.value));
     added.textContent = tr('shop.added');
     openDrawer(addBtn);
   });
@@ -135,7 +125,7 @@ function paint(data: cart.PricedResponse | null) {
   linesEl.innerHTML = lines
     .map(
       (l) => `
-      <li class="cart-line" data-variant="${l.variantId}">
+      <li class="cart-line" data-sku="${esc(l.sku)}">
         <div>
           <p class="cart-line__name">${esc(l.productCode)} — ${esc(l.productName)}</p>
           <p class="cart-line__meta">${esc(l.variantLabel)} · ${esc(l.unit)}</p>
@@ -144,7 +134,7 @@ function paint(data: cart.PricedResponse | null) {
         <div class="cart-line__controls">
           <div class="qty">
             <button type="button" class="qty__btn" data-line-dec aria-label="${esc(tr('shop.decrease'))}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="1.5"/></svg></button>
-            <input class="qty__input num" type="number" min="1" max="${l.maxQty ?? 999}" value="${l.qty}" inputmode="numeric" aria-label="${esc(tr('shop.quantity'))}" data-line-qty>
+            <input class="qty__input num" type="number" min="1" max="999" value="${l.qty}" inputmode="numeric" aria-label="${esc(tr('shop.quantity'))}" data-line-qty>
             <button type="button" class="qty__btn" data-line-inc aria-label="${esc(tr('shop.increase'))}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.5"/></svg></button>
           </div>
           <button type="button" class="cart-line__remove" data-line-remove>${esc(tr('cart.remove'))}</button>
@@ -158,9 +148,9 @@ function paint(data: cart.PricedResponse | null) {
 let debounce = 0;
 linesEl?.addEventListener('click', (e) => {
   const t = e.target as HTMLElement;
-  const li = t.closest<HTMLElement>('[data-variant]');
+  const li = t.closest<HTMLElement>('[data-sku]');
   if (!li) return;
-  const id = Number(li.dataset.variant);
+  const id = li.dataset.sku!;
   const input = li.querySelector<HTMLInputElement>('[data-line-qty]')!;
   const max = Number(input.max) || 999;
   if (t.closest('[data-line-remove]')) {
@@ -184,9 +174,9 @@ linesEl?.addEventListener('click', (e) => {
 linesEl?.addEventListener('change', (e) => {
   const input = e.target as HTMLInputElement;
   if (!input.matches('[data-line-qty]')) return;
-  const li = input.closest<HTMLElement>('[data-variant]')!;
+  const li = input.closest<HTMLElement>('[data-sku]')!;
   const v = Math.round(Number(input.value));
-  cart.setQty(Number(li.dataset.variant), Number.isFinite(v) ? Math.min(Number(input.max) || 999, Math.max(0, v)) : 1);
+  cart.setQty(li.dataset.sku!, Number.isFinite(v) ? Math.min(Number(input.max) || 999, Math.max(0, v)) : 1);
   refresh();
 });
 

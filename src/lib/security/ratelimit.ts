@@ -43,9 +43,4 @@ export const LIMITS = {
   contact: [5, 600],
   checkout: [10, 600],
   cartQuote: [120, 60],
-  loginIp: [20, 900],
-  loginAccount: [5, 900],
-  mfa: [6, 300],
-  adminWrite: [300, 300],
-  upload: [40, 600],
 } as const satisfies Record<string, readonly [number, number]>;

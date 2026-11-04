@@ -1,8 +1,7 @@
 // Correo transaccional por SMTP. Si no hay SMTP configurado, el correo no se
-// envía y queda registrado como "skipped" en el panel (nunca se finge el envío).
+// envía y queda registrado como "skipped" en el log del servidor (nunca se finge el envío).
 import nodemailer, { type Transporter } from 'nodemailer';
 import { config, contact, smtpConfigured } from './config.ts';
-import { run } from './db.ts';
 import { log } from './log.ts';
 
 let transport: Transporter | undefined;
@@ -58,13 +57,8 @@ export async function sendMail(m: Mail): Promise<'sent' | 'failed' | 'skipped'> 
       log.error('mail.send', { template: m.template, error });
     }
   }
-  try {
-    await run('INSERT INTO email_log (at, recipient, template, subject, status, error, related) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-      Date.now(), m.to || '-', m.template, m.subject.slice(0, 200), status, error, m.related ?? '',
-    ]);
-  } catch (e) {
-    log.error('mail.log', e);
-  }
+  // Sin destinatario visible en el log (dato personal): solo plantilla, estado y referencia.
+  (status === 'sent' ? log.info : log.warn)('mail', { template: m.template, related: m.related ?? '', status, error });
   return status;
 }
 

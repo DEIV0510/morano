@@ -18,7 +18,7 @@ interface Props {
 }
 const { locale } = Astro.props;
 const [copy, settings] = await Promise.all([getCopy(locale), getSettings()]);
-const products = await publicCatalog(locale, settings.lowStockDefault);
+const products = await publicCatalog(locale);
 
 const site = config.siteUrl;
 const jsonLd = [

@@ -1,5 +1,5 @@
 // Textos legales (LSSI-CE, RGPD/LOPDGDD, cookies y condiciones de compra).
-// Los datos societarios (NIF, registro, correo) se toman de Ajustes; si faltan,
+// Los datos societarios (NIF, registro, correo) se toman de src/data/ajustes.ts; si faltan,
 // no se muestran. Deben revisarse por el asesor legal de la empresa antes de publicar.
 import { contact } from './config.ts';
 import type { Locale } from './i18n.ts';
@@ -81,7 +81,7 @@ export function legalDoc(key: LegalKey, l: Locale, s: Settings): LegalDoc {
             { h: 'Destinatarios', p: ['No cedemos datos a terceros salvo obligación legal. Acceden a ellos, como encargados del tratamiento y solo en la medida necesaria, los proveedores de alojamiento web, correo electrónico, pagos (Stripe) y, en su caso, la herramienta de gestión comercial de la empresa.'] },
             { h: 'Plazos de conservación', p: ['Las solicitudes y mensajes se conservan mientras exista una relación comercial o, en su defecto, durante un máximo de dos años. Los datos de pedidos y facturación se conservan durante los plazos que exige la normativa mercantil y tributaria. Los registros técnicos de seguridad se conservan un máximo de doce meses.'] },
             { h: 'Sus derechos', p: [`Puede ejercer sus derechos de acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad ${rights}, indicando el derecho que ejerce. También puede retirar su consentimiento en cualquier momento y presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).`] },
-            { h: 'Seguridad', p: ['Aplicamos medidas técnicas y organizativas adecuadas: conexión cifrada (HTTPS), acceso restringido al panel de administración con autenticación reforzada, registro de actividad y copias de seguridad.'] },
+            { h: 'Seguridad', p: ['Aplicamos medidas técnicas y organizativas adecuadas: conexión cifrada (HTTPS), acceso restringido a los datos, protección frente a envíos automatizados y copias de seguridad.'] },
           ],
         }
       : {
@@ -101,7 +101,7 @@ export function legalDoc(key: LegalKey, l: Locale, s: Settings): LegalDoc {
             { h: 'Recipients', p: ['We do not share data with third parties unless legally required. Our web hosting, email, payment (Stripe) and, where applicable, sales management providers access data as processors, only to the extent necessary.'] },
             { h: 'Retention', p: ['Requests and messages are kept while a business relationship exists or, otherwise, for up to two years. Order and invoicing data are kept for the periods required by commercial and tax law. Technical security logs are kept for up to twelve months.'] },
             { h: 'Your rights', p: [`You may exercise your rights of access, rectification, erasure, objection, restriction and portability ${rights}, stating the right you wish to exercise. You may withdraw consent at any time and lodge a complaint with the Spanish Data Protection Agency (www.aepd.es).`] },
-            { h: 'Security', p: ['We apply appropriate technical and organisational measures: encrypted connections (HTTPS), restricted access to the administration panel with strong authentication, activity logging and backups.'] },
+            { h: 'Security', p: ['We apply appropriate technical and organisational measures: encrypted connections (HTTPS), restricted access to data, protection against automated submissions and backups.'] },
           ],
         };
   }
@@ -111,16 +111,14 @@ export function legalDoc(key: LegalKey, l: Locale, s: Settings): LegalDoc {
       ? [
           ['Nombre', 'Tipo', 'Finalidad', 'Duración'],
           ['me_intro', 'Cookie técnica propia', 'Recordar que ya se mostró la animación de carga en esta visita', 'Sesión'],
-          ['morano_cart_v1', 'Almacenamiento local propio', 'Guardar los productos del carrito', 'Hasta que vacíe el carrito'],
+          ['morano_cart_v2', 'Almacenamiento local propio', 'Guardar los productos del carrito', 'Hasta que vacíe el carrito'],
           ['morano_checkout_key', 'Almacenamiento de sesión propio', 'Evitar pedidos duplicados si se envía el formulario dos veces', 'Sesión'],
-          ['__Host-morano_admin', 'Cookie técnica propia', 'Mantener la sesión del panel de administración (solo personal autorizado)', 'Hasta 12 horas'],
         ]
       : [
           ['Name', 'Type', 'Purpose', 'Duration'],
           ['me_intro', 'First-party technical cookie', 'Remember that the loading animation has already been shown during this visit', 'Session'],
-          ['morano_cart_v1', 'First-party local storage', 'Keep the products in your cart', 'Until you empty the cart'],
+          ['morano_cart_v2', 'First-party local storage', 'Keep the products in your cart', 'Until you empty the cart'],
           ['morano_checkout_key', 'First-party session storage', 'Prevent duplicate orders if the form is submitted twice', 'Session'],
-          ['__Host-morano_admin', 'First-party technical cookie', 'Keep the administration panel session (authorised staff only)', 'Up to 12 hours'],
         ];
     return es
       ? {

@@ -32,9 +32,8 @@ sudo -u morano cp .env.example .env && sudo -u morano nano .env && sudo chmod 60
 #   APP_SECRET=<node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))">
 sudo -u morano npm run build
 
-# 4. Base de datos y primer administrador
+# 4. Base de datos
 sudo -u morano npm run db:migrate
-sudo -u morano npm run admin:create -- correo@moranoeurope.com "Nombre" admin
 ```
 
 Servicio systemd `/etc/systemd/system/morano.service`:
@@ -79,7 +78,7 @@ moranoeurope.com {
 
 1. Añadir el dominio a Cloudflare y apuntar los registros A/AAAA al VPS con el proxy (nube naranja) activado.
 2. SSL/TLS: **Full (strict)**. Activar «Always Use HTTPS» y HSTS.
-3. Security: WAF Managed Rules, Bot Fight Mode. Reglas de rate limiting: `/admin/login` 10/min por IP, `/api/` 60/min por IP.
+3. Security: WAF Managed Rules, Bot Fight Mode. Regla de rate limiting: `/api/` 60/min por IP.
 4. Caché: respetar las cabeceras del origen (los archivos `/_astro/*` ya llevan caché inmutable; `/img`, `/fonts` y `/brand` 30 días; el HTML se revalida siempre).
 5. En el VPS, permitir el puerto 443 solo desde los rangos IP de Cloudflare (opcional, más seguro).
 
@@ -97,8 +96,8 @@ npm run db:migrate                       # con esas variables definidas
 1. Crear la cuenta de Stripe a nombre de **MORANO EUROPE SL** (requiere NIF, cuenta bancaria SEPA y verificación del representante).
 2. Probar primero en **modo test**: `STRIPE_SECRET_KEY=sk_test_…`.
 3. Developers → Webhooks → Add endpoint: `https://www.moranoeurope.com/api/webhooks/stripe` con los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `charge.refunded`. Copiar el *signing secret* → `STRIPE_WEBHOOK_SECRET=whsec_…`.
-4. En el panel: **Ajustes** → coste de envío (o 0) y «Permitir pago con tarjeta». Sin envío configurado, la web sigue registrando pedidos con proforma.
-5. Prueba completa con la tarjeta de test `4242 4242 4242 4242` y comprobar en **Pedidos** que pasa a «Pagado».
+4. En `src/data/ajustes.ts`: `envio` (euros, o 0 para gratis) y `pagoConTarjeta: true`; después `npm run build` y reiniciar. Sin envío definido, la web sigue registrando pedidos con proforma.
+5. Prueba completa con la tarjeta de test `4242 4242 4242 4242`: la página del pedido debe pasar a «Pago confirmado» y deben llegar los correos de pago al cliente y al buzón comercial.
 6. Cambiar a claves `sk_live_…` y crear el webhook también en modo live.
 
 La sesión de Checkout no fija métodos de pago: los que se activen en el panel de Stripe (tarjeta, Apple Pay, Google Pay, SEPA u otros disponibles para España) aparecen sin tocar el código.
@@ -119,11 +118,11 @@ sudo systemctl restart morano
 ## 8. Lista de comprobación antes de cambiar el DNS
 
 - [ ] `SITE_URL` con `https://` y dominio definitivo.
-- [ ] Primer administrador creado y con verificación en dos pasos activada.
-- [ ] Precios, envío, IVA y datos legales (NIF, registro, correo) en **Ajustes**.
-- [ ] Textos revisados en ES y EN (**Textos del sitio**) y fichas de producto validadas por la empresa.
+- [ ] Verificación en dos pasos activada en GitHub, Stripe, Cloudflare, correo y hosting.
+- [ ] Precios en `src/data/catalogo.ts`; envío, IVA y datos legales (NIF, registro, correo) en `src/data/ajustes.ts`.
+- [ ] Textos revisados en ES y EN (`src/lib/copy.ts`) y fichas de producto validadas por la empresa.
 - [ ] Stripe en modo test probado de extremo a extremo; luego claves live.
-- [ ] SMTP probado (ver **Actividad y correo**).
+- [ ] SMTP y `SALES_EMAIL` probados con una cotización real (sin panel, el buzón comercial es donde llega todo).
 - [ ] Copia de seguridad programada y una restauración probada.
 - [ ] Cloudflare con WAF y reglas de rate limiting.
 - [ ] Redirecciones 301 de las URLs antiguas de WordPress que tengan tráfico (si las hay) hacia `/es/` o `/en/`.

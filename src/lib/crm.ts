@@ -1,6 +1,6 @@
 // Envío de solicitudes al sistema de gestión comercial configurado (webhook
-// firmado). Todas las solicitudes quedan además en el panel, que funciona como
-// CRM interno aunque no haya un sistema externo.
+// firmado). Las solicitudes llegan además por correo al buzón comercial y se
+// guardan en la base de datos como copia de seguridad.
 import { createHmac } from 'node:crypto';
 import { config } from './config.ts';
 import { log } from './log.ts';

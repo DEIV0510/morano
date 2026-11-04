@@ -7,8 +7,8 @@ import { config, stripeConfigured } from '../../../lib/config.ts';
 import { get, run } from '../../../lib/db.ts';
 import { json } from '../../../lib/http.ts';
 import { log } from '../../../lib/log.ts';
-import { securityAlert } from '../../../lib/audit.ts';
-import { changeStatus, confirmStripePayment, type OrderRow } from '../../../lib/orders.ts';
+import { securityAlert } from '../../../lib/alerts.ts';
+import { confirmStripePayment, markRefunded, type OrderRow } from '../../../lib/orders.ts';
 import { verifyStripeSignature } from '../../../lib/payments/stripe.ts';
 
 export const POST: APIRoute = async ({ request }) => {
@@ -63,10 +63,9 @@ export const POST: APIRoute = async ({ request }) => {
       case 'charge.refunded':
         {
           const pi = typeof obj.payment_intent === 'string' ? obj.payment_intent : null;
-          const o = pi ? await get<OrderRow>('SELECT * FROM orders WHERE stripe_payment_intent = ?', [pi]) : undefined;
-          if (o && obj.refunded === true && ['paid', 'processing', 'shipped', 'delivered'].includes(o.status)) {
-            await changeStatus(o.id, 'refunded', 'stripe', 'Reembolso total registrado en Stripe');
-            result = { refunded: o.ref };
+          if (pi && obj.refunded === true) {
+            const refunded = await markRefunded(pi);
+            if (refunded) result = { refunded };
           }
         }
         break;

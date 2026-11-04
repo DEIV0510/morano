@@ -78,7 +78,7 @@ export const cartSchema = z.object({
   items: z
     .array(
       z.object({
-        variantId: z.number().int().positive(),
+        sku: z.string().regex(/^[A-Z0-9-]{2,40}$/),
         qty: z.number().int().min(L.qty.min).max(L.qty.max),
       })
     )

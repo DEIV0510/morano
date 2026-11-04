@@ -1,11 +1,11 @@
-// Textos corporativos por defecto (ES/EN), editables desde el panel en
-// "Textos del sitio". Fuente: brief oficial PAGINA-WEB.pdf y moranogruppo.com.
+// Textos corporativos del sitio (ES/EN). Se editan aquí; tras editar,
+// npm run build. Fuente: brief oficial PAGINA-WEB.pdf y moranogruppo.com.
 // Regla: nada de cifras, certificaciones, rutas ni destinos no documentados.
 import type { Locale } from './i18n.ts';
 
 export interface CopyField {
   key: string;
-  label: string; // etiqueta en el panel
+  label: string; // descripción del campo
   group: string;
   multiline?: boolean;
   es: string;

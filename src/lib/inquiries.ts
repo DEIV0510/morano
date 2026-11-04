@@ -2,7 +2,8 @@
 import { config } from './config.ts';
 import { countryName } from './countries.ts';
 import { pushToCrm } from './crm.ts';
-import { get, run } from './db.ts';
+import { run } from './db.ts';
+import { CATALOGO } from '../data/catalogo.ts';
 import { log } from './log.ts';
 import { esc, layout, sendMail, table, textTable } from './mail.ts';
 import { hashIp, publicRef } from './security/crypto.ts';
@@ -23,12 +24,13 @@ async function insertWithRef(prefix: string, sql: string, args: (ref: string) =>
 }
 
 export async function createQuote(q: QuoteInput, ip: string) {
+  const def = CATALOGO.find((p) => p.slug === q.product);
   const product =
     q.product === 'other'
       ? { label: q.locale === 'es' ? 'Otro / varios productos' : 'Other / several products' }
-      : await get<{ code: string; name_es: string; name_en: string }>("SELECT code, name_es, name_en FROM products WHERE slug = ? AND status = 'active'", [q.product]).then((p) =>
-          p ? { label: `${p.code} — ${q.locale === 'es' ? p.name_es : p.name_en}` } : undefined
-        );
+      : def
+        ? { label: `${def.code} — ${def.name[q.locale]}` }
+        : undefined;
   if (!product) throw new ApiError(422, 'validation_error', 'Invalid data', { fields: { product: 'invalid_product' } });
 
   const now = Date.now();
@@ -57,7 +59,7 @@ export async function createQuote(q: QuoteInput, ip: string) {
       replyTo: q.email,
       subject: `Nueva cotización ${ref}: ${product.label} — ${q.company}`,
       text: textTable(rows),
-      html: layout('Nueva solicitud de cotización', `<p>Nueva solicitud de cotización desde la web.</p>${table(rows)}<p><a href="${esc(config.siteUrl)}/admin/cotizaciones">Abrir en el panel</a></p>`),
+      html: layout('Nueva solicitud de cotización', `<p>Nueva solicitud de cotización desde la web.</p>${table(rows)}<p>Responda a este correo para contactar directamente con el cliente.</p>`),
       template: 'quote-sales',
       related: ref,
     });
@@ -97,7 +99,7 @@ export async function createMessage(m: ContactInput, ip: string) {
       replyTo: m.email,
       subject: `Nuevo mensaje ${ref} — ${m.fullName}${m.company ? ` (${m.company})` : ''}`,
       text: textTable(rows),
-      html: layout('Nuevo mensaje de contacto', `${table(rows)}<p><a href="${esc(config.siteUrl)}/admin/mensajes">Abrir en el panel</a></p>`),
+      html: layout('Nuevo mensaje de contacto', `${table(rows)}<p>Responda a este correo para contactar directamente con el remitente.</p>`),
       template: 'contact-sales',
       related: ref,
     });

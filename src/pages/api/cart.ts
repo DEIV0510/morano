@@ -15,18 +15,17 @@ export const POST: APIRoute = handler('api.cart', async (ctx) => {
   const locale = isLocale(raw?.locale) ? raw.locale : 'es';
   const input = parse(cartSchema, { items: raw?.items ?? [] });
   const settings = await getSettings();
-  const cart = await priceCart(input, settings, locale);
+  const cart = priceCart(input, settings, locale);
   const m = (c: number) => formatMoney(c, locale);
   return json({
     ok: true,
     lines: cart.lines.map((l) => ({
-      variantId: l.variantId,
+      sku: l.sku,
       productSlug: l.productSlug,
       productCode: l.productCode,
       productName: l.productName,
       variantLabel: l.variantLabel,
       qty: l.qty,
-      maxQty: l.maxQty,
       unit: m(l.unitCents),
       total: m(l.lineCents),
     })),

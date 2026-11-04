@@ -3,18 +3,17 @@
 import { postJson } from './shared.ts';
 
 export interface CartItem {
-  variantId: number;
+  sku: string;
   qty: number;
 }
 
 export interface PricedLine {
-  variantId: number;
+  sku: string;
   productSlug: string;
   productCode: string;
   productName: string;
   variantLabel: string;
   qty: number;
-  maxQty: number | null;
   unit: string;
   total: string;
 }
@@ -22,12 +21,12 @@ export interface PricedLine {
 export interface PricedResponse {
   ok: boolean;
   lines: PricedLine[];
-  issues: { variantId: number; reason: string }[];
+  issues: { sku: string; reason: string }[];
   totals: { subtotal: string; shipping: string | null; shippingFree: boolean; vat: string; vatIncluded: boolean; vatRate: string; total: string };
   paymentMode: 'stripe' | 'proforma';
 }
 
-const KEY = 'morano_cart_v1';
+const KEY = 'morano_cart_v2';
 const listeners = new Set<(items: CartItem[]) => void>();
 
 export function load(): CartItem[] {
@@ -35,8 +34,8 @@ export function load(): CartItem[] {
     const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
     if (!Array.isArray(raw)) return [];
     return raw
-      .filter((i) => Number.isInteger(i?.variantId) && i.variantId > 0 && Number.isInteger(i?.qty) && i.qty > 0)
-      .map((i) => ({ variantId: i.variantId, qty: Math.min(999, i.qty) }))
+      .filter((i) => typeof i?.sku === 'string' && /^[A-Z0-9-]{2,40}$/.test(i.sku) && Number.isInteger(i?.qty) && i.qty > 0)
+      .map((i) => ({ sku: i.sku, qty: Math.min(999, i.qty) }))
       .slice(0, 20);
   } catch {
     return [];
@@ -56,23 +55,23 @@ export function onChange(fn: (items: CartItem[]) => void) {
   listeners.add(fn);
 }
 
-export function add(variantId: number, qty: number) {
+export function add(sku: string, qty: number) {
   const items = load();
-  const found = items.find((i) => i.variantId === variantId);
+  const found = items.find((i) => i.sku === sku);
   if (found) found.qty = Math.min(999, found.qty + qty);
-  else items.push({ variantId, qty });
+  else items.push({ sku, qty });
   save(items);
 }
 
-export function setQty(variantId: number, qty: number) {
+export function setQty(sku: string, qty: number) {
   const items = load()
-    .map((i) => (i.variantId === variantId ? { ...i, qty } : i))
+    .map((i) => (i.sku === sku ? { ...i, qty } : i))
     .filter((i) => i.qty > 0);
   save(items);
 }
 
-export function remove(variantId: number) {
-  save(load().filter((i) => i.variantId !== variantId));
+export function remove(sku: string) {
+  save(load().filter((i) => i.sku !== sku));
 }
 
 export function clear() {
@@ -86,7 +85,7 @@ export async function price(locale: string): Promise<PricedResponse | null> {
   const items = load();
   const { status, data } = await postJson<PricedResponse>('/api/cart', { items, locale });
   if (status !== 200 || !data?.ok) return null;
-  const synced = data.lines.map((l) => ({ variantId: l.variantId, qty: l.qty }));
+  const synced = data.lines.map((l) => ({ sku: l.sku, qty: l.qty }));
   const changed = JSON.stringify(synced) !== JSON.stringify(items);
   if (changed) save(synced);
   return data;

@@ -9,7 +9,6 @@ import { config } from '../lib/config.ts';
 import { productBySlug } from '../lib/catalog.ts';
 import { ROUTES, route, SECTIONS, t, type Locale } from '../lib/i18n.ts';
 import { getSettings } from '../lib/settings.ts';
-import { mediaUrl } from '../lib/media.ts';
 
 interface Props {
   locale: Locale;
@@ -17,15 +16,15 @@ interface Props {
 }
 const { locale, slug } = Astro.props;
 const settings = await getSettings();
-const p = /^[a-z0-9-]{2,64}$/.test(slug) ? await productBySlug(slug, locale, settings.lowStockDefault) : undefined;
+const p = await productBySlug(slug, locale);
 
 const site = config.siteUrl;
 const alternates = { es: ROUTES.product.es + slug, en: ROUTES.product.en + slug };
 const home = route('home', locale);
 const S = SECTIONS[locale];
 const photo = p?.photo && p.photo in images ? (p.photo as keyof typeof images) : undefined;
-const uploaded = p?.images[0];
 const priced = p?.variants.filter((v) => v.priceCents) ?? [];
+const imageUrl = photo ? site + '/img/' + photo + '-' + images[photo].widths[images[photo].widths.length - 1] + '.jpg' : undefined;
 
 const jsonLd = p
   ? [
@@ -40,16 +39,16 @@ const jsonLd = p
         manufacturer: { '@type': 'Organization', name: 'Morano Gruppo', url: 'https://moranogruppo.com/' },
         countryOfOrigin: 'CO',
         url: `${site}${route('product', locale, p.slug)}`,
-        ...(uploaded ? { image: `${site}${mediaUrl(uploaded.mediaId, 1600)}` } : photo ? { image: `${site}/img/${photo}-${images[photo].widths.at(-1)}.jpg` } : {}),
+        ...(imageUrl ? { image: imageUrl } : {}),
         ...(priced.length
           ? {
               offers: priced.map((v) => ({
                 '@type': 'Offer',
                 sku: v.sku,
                 name: v.label,
-                price: (v.priceCents! / 100).toFixed(2),
+                price: ((v.priceCents ?? 0) / 100).toFixed(2),
                 priceCurrency: 'EUR',
-                availability: v.available ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                availability: 'https://schema.org/InStock',
                 url: `${site}${route('product', locale, p.slug)}`,
                 seller: { '@id': `${site}/#organization` },
               })),
@@ -90,14 +89,12 @@ const description = p ? `${p.description} ${p.kind === 'direct' ? (locale === 'e
         <section class="pdp wrap">
           <div class="grid pdp__grid">
             <div class="pdp__media">
-              {uploaded ? (
-                <div class="framed"><div class="photo">
-                  <img src={mediaUrl(uploaded.mediaId, 960)} srcset={`${mediaUrl(uploaded.mediaId, 480)} 480w, ${mediaUrl(uploaded.mediaId, 960)} 960w, ${mediaUrl(uploaded.mediaId, 1600)} 1600w`} sizes="(min-width: 1024px) 46vw, 92vw" width={uploaded.width} height={uploaded.height} alt={uploaded.alt} />
-                </div></div>
-              ) : photo ? (
-                <div class="framed"><div class="photo">
-                  <Picture name={photo} alt={p.name} sizes="(min-width: 1024px) 46vw, 92vw" priority />
-                </div></div>
+              {photo ? (
+                <div class="framed">
+                  <div class="photo">
+                    <Picture name={photo} alt={p.name} sizes="(min-width: 1024px) 46vw, 92vw" priority />
+                  </div>
+                </div>
               ) : (
                 <div class="pdp__media--type framed">
                   <span class="pdp__big">{p.code}</span>

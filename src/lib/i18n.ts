@@ -1,5 +1,5 @@
 // Idiomas, rutas localizadas y textos de la interfaz.
-// Los textos corporativos editables están en copy.ts (el panel los sobrescribe).
+// Los textos corporativos están en copy.ts.
 export type Locale = 'es' | 'en';
 export const LOCALES: Locale[] = ['es', 'en'];
 

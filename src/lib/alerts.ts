@@ -1,27 +1,8 @@
-// Registro de actividad administrativa y alertas de seguridad.
+// Alertas de seguridad (log + correo a ALERT_EMAIL, máximo una cada 15 min por tipo).
 import { config } from './config.ts';
-import { run } from './db.ts';
 import { log } from './log.ts';
 import { sendMail, layout, esc } from './mail.ts';
 import { consume } from './security/ratelimit.ts';
-
-export async function audit(
-  actor: { id?: number; email?: string } | null,
-  action: string,
-  entity?: string,
-  entityId?: string | number,
-  detail: Record<string, unknown> = {},
-  ipHash?: string
-) {
-  try {
-    await run(
-      'INSERT INTO audit_log (at, user_id, user_email, action, entity, entity_id, detail, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [Date.now(), actor?.id ?? null, actor?.email ?? null, action, entity ?? null, entityId === undefined ? null : String(entityId), JSON.stringify(detail).slice(0, 4000), ipHash ?? null]
-    );
-  } catch (e) {
-    log.error('audit', e);
-  }
-}
 
 /** Alerta de actividad sospechosa: log + correo (máximo uno cada 15 min por tipo). */
 export async function securityAlert(type: string, detail: Record<string, unknown>) {
@@ -36,7 +17,7 @@ export async function securityAlert(type: string, detail: Record<string, unknown
       to: config.mail.alert,
       subject: `[Morano Europe] Alerta de seguridad: ${type}`,
       text: `Alerta: ${type}\n${JSON.stringify(detail, null, 2)}`,
-      html: layout('Alerta de seguridad', `<p>Se ha detectado: <strong>${esc(type)}</strong></p><ul>${rows}</ul><p>Revise el registro de actividad del panel.</p>`),
+      html: layout('Alerta de seguridad', `<p>Se ha detectado: <strong>${esc(type)}</strong></p><ul>${rows}</ul><p>Revise los registros del servidor.</p>`),
       template: 'security-alert',
     });
   } catch (e) {

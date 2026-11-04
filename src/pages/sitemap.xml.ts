@@ -1,15 +1,14 @@
 // Sitemap XML con alternativas hreflang por idioma.
 import type { APIRoute } from 'astro';
 import { config } from '../lib/config.ts';
-import { all } from '../lib/db.ts';
+import { CATALOGO } from '../data/catalogo.ts';
 import { ROUTES } from '../lib/i18n.ts';
 
 export const GET: APIRoute = async () => {
   const site = config.siteUrl;
-  const products = await all<{ slug: string; updated_at: number }>("SELECT slug, updated_at FROM products WHERE status = 'active' ORDER BY sort");
   const pages: { es: string; en: string; lastmod?: number; priority: string }[] = [
-    { es: ROUTES.home.es, en: ROUTES.home.en, priority: '1.0', lastmod: Math.max(0, ...products.map((p) => p.updated_at)) },
-    ...products.map((p) => ({ es: ROUTES.product.es + p.slug, en: ROUTES.product.en + p.slug, lastmod: p.updated_at, priority: '0.8' })),
+    { es: ROUTES.home.es, en: ROUTES.home.en, priority: '1.0' },
+    ...CATALOGO.map((p) => ({ es: ROUTES.product.es + p.slug, en: ROUTES.product.en + p.slug, priority: '0.8' })),
     { es: ROUTES.terms.es, en: ROUTES.terms.en, priority: '0.3' },
     { es: ROUTES.legal.es, en: ROUTES.legal.en, priority: '0.2' },
     { es: ROUTES.privacy.es, en: ROUTES.privacy.en, priority: '0.2' },

@@ -1,4 +1,6 @@
-// Pedidos: creación idempotente, estados, inventario y notificaciones.
+// Pedidos: creación idempotente, confirmación de pago y notificaciones.
+// Sin panel administrativo: cada pedido llega completo por correo al buzón
+// comercial (y al CRM si está configurado); el estado lo actualiza Stripe.
 import { config, stripeConfigured } from './config.ts';
 import { all, batch, get, run } from './db.ts';
 import { ApiError } from './http.ts';
@@ -13,19 +15,7 @@ import type { CheckoutInput } from './validation.ts';
 import { countryName } from './countries.ts';
 import { pushToCrm } from './crm.ts';
 
-export const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'] as const;
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
-
-/** Transiciones permitidas (se validan en el servidor). */
-export const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ['paid', 'cancelled'],
-  paid: ['processing', 'shipped', 'refunded', 'cancelled'],
-  processing: ['shipped', 'refunded', 'cancelled'],
-  shipped: ['delivered', 'refunded'],
-  delivered: ['refunded'],
-  cancelled: [],
-  refunded: [],
-};
+export type OrderStatus = 'pending' | 'paid' | 'refunded';
 
 export interface OrderRow {
   id: number;
@@ -57,8 +47,6 @@ export interface OrderRow {
   stripe_session_id: string | null;
   stripe_payment_intent: string | null;
   paid_at: number | null;
-  stock_applied: number;
-  internal_notes: string;
   created_at: number;
   updated_at: number;
 }
@@ -66,8 +54,7 @@ export interface OrderRow {
 export interface OrderItemRow {
   id: number;
   order_id: number;
-  product_id: number | null;
-  variant_id: number | null;
+  product_slug: string;
   sku: string;
   product_name: string;
   variant_label: string;
@@ -99,13 +86,9 @@ export async function createOrder(input: CheckoutInput, ip: string) {
   const existing = await get<OrderRow>('SELECT * FROM orders WHERE idempotency_key = ?', [input.idempotencyKey]);
   if (existing) return resumeOrder(existing);
 
-  const cart = await priceCart({ items: input.items }, settings, locale);
-  if (!cart.lines.length) throw new ApiError(409, 'cart_empty', 'Cart is empty', {});
-  if (cart.issues.length) {
-    const err = new ApiError(409, 'cart_changed', 'Cart changed');
-    (err as any).cart = cart;
-    throw err;
-  }
+  const cart = priceCart({ items: input.items }, settings, locale);
+  if (!cart.lines.length) throw new ApiError(409, 'cart_empty', 'Cart is empty');
+  if (cart.issues.length) throw new ApiError(409, 'cart_changed', 'Cart changed');
 
   const method = paymentMode(cart, settings);
   const token = randomToken(24);
@@ -129,9 +112,9 @@ export async function createOrder(input: CheckoutInput, ip: string) {
           ],
         },
         ...cart.lines.map((l) => ({
-          sql: `INSERT INTO order_items (order_id, product_id, variant_id, sku, product_name, variant_label, unit_price_cents, qty, line_total_cents)
-                VALUES ((SELECT id FROM orders WHERE ref = ?), ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [ref, l.productId, l.variantId, l.sku, `${l.productCode} — ${l.productName}`, l.variantLabel, l.unitCents, l.qty, l.lineCents],
+          sql: `INSERT INTO order_items (order_id, product_slug, sku, product_name, variant_label, unit_price_cents, qty, line_total_cents)
+                VALUES ((SELECT id FROM orders WHERE ref = ?), ?, ?, ?, ?, ?, ?, ?)`,
+          args: [ref, l.productSlug, l.sku, `${l.productCode} — ${l.productName}`, l.variantLabel, l.unitCents, l.qty, l.lineCents],
         })),
         {
           sql: `INSERT INTO order_events (order_id, at, actor, type, to_status, note) VALUES ((SELECT id FROM orders WHERE ref = ?), ?, 'customer', 'created', 'pending', ?)`,
@@ -215,48 +198,16 @@ export async function findOrderForCustomer(ref: string, opts: { token?: string |
   return { order, items };
 }
 
-// ── Inventario ──
-async function applyStock(order: OrderRow, direction: -1 | 1) {
-  const items = await all<OrderItemRow>('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
-  for (const i of items) {
-    if (!i.variant_id) continue;
-    if (direction === -1) {
-      // Descuento atómico: solo si hay existencias suficientes; sin control de stock (NULL) no cambia nada.
-      const r = await run('UPDATE variants SET stock = stock - ?, updated_at = ? WHERE id = ? AND stock IS NOT NULL AND stock >= ?', [i.qty, Date.now(), i.variant_id, i.qty]);
-      if (!r.changes) {
-        const v = await get<{ stock: number | null }>('SELECT stock FROM variants WHERE id = ?', [i.variant_id]);
-        if (v && v.stock !== null) {
-          await run('UPDATE variants SET stock = 0, updated_at = ? WHERE id = ?', [Date.now(), i.variant_id]);
-          await addEvent(order.id, 'system', 'stock_warning', null, null, `Existencias insuficientes para ${i.sku}: revisar.`);
-        }
-      }
-    } else {
-      await run('UPDATE variants SET stock = stock + ?, updated_at = ? WHERE id = ? AND stock IS NOT NULL', [i.qty, Date.now(), i.variant_id]);
-    }
-  }
-  await run('UPDATE orders SET stock_applied = ? WHERE id = ?', [direction === -1 ? 1 : 0, order.id]);
-}
-
-async function addEvent(orderId: number, actor: string, type: string, from: string | null, to: string | null, note = '') {
-  await run('INSERT INTO order_events (order_id, at, actor, type, from_status, to_status, note) VALUES (?, ?, ?, ?, ?, ?, ?)', [orderId, Date.now(), actor, type, from, to, note]);
-}
-
-/** Cambio de estado validado. Devuelve el pedido actualizado. */
-export async function changeStatus(orderId: number, to: OrderStatus, actor: string, note = '', opts: { notify?: boolean } = {}) {
-  const order = await get<OrderRow>('SELECT * FROM orders WHERE id = ?', [orderId]);
-  if (!order) throw new ApiError(404, 'not_found', 'Order not found');
-  if (!TRANSITIONS[order.status].includes(to)) throw new ApiError(409, 'invalid_transition', `No se puede pasar de ${order.status} a ${to}`);
-  // Cambio condicionado al estado leído: evita carreras entre dos administradores o con el webhook.
+/** Cambio de estado condicionado al estado anterior (evita carreras entre entregas del webhook). */
+async function setStatus(order: OrderRow, to: OrderStatus, actor: string, note: string) {
   const r = await run('UPDATE orders SET status = ?, updated_at = ?, paid_at = COALESCE(paid_at, ?) WHERE id = ? AND status = ?', [
-    to, Date.now(), to === 'paid' ? Date.now() : null, orderId, order.status,
+    to, Date.now(), to === 'paid' ? Date.now() : null, order.id, order.status,
   ]);
-  if (!r.changes) throw new ApiError(409, 'conflict', 'El pedido cambió mientras tanto; recargue la página.');
-  await addEvent(orderId, actor, 'status', order.status, to, note.slice(0, 1000));
-  const updated = (await get<OrderRow>('SELECT * FROM orders WHERE id = ?', [orderId]))!;
-  if (to === 'paid' && !order.stock_applied) await applyStock(updated, -1);
-  if ((to === 'cancelled' || to === 'refunded') && updated.stock_applied) await applyStock(updated, 1);
-  if (opts.notify) notifyStatus(updated).catch((e) => log.error('order.notifyStatus', e));
-  return updated;
+  if (!r.changes) return false;
+  await run('INSERT INTO order_events (order_id, at, actor, type, from_status, to_status, note) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+    order.id, Date.now(), actor, 'status', order.status, to, note.slice(0, 1000),
+  ]);
+  return true;
 }
 
 /** Confirmación de pago desde el webhook de Stripe, con verificación de importe. */
@@ -266,14 +217,26 @@ export async function confirmStripePayment(s: { ref: string; sessionId: string; 
   if (order.payment_method !== 'stripe') return { ok: false, reason: 'not_stripe_order' };
   if (s.paymentStatus !== 'paid') return { ok: false, reason: 'not_paid' };
   if (s.currency.toLowerCase() !== 'eur' || s.amountTotal !== order.total_cents) {
-    await addEvent(order.id, 'system', 'amount_mismatch', null, null, `Stripe ${s.amountTotal} ${s.currency} ≠ pedido ${order.total_cents} EUR`);
+    await run("INSERT INTO order_events (order_id, at, actor, type, note) VALUES (?, ?, 'system', 'amount_mismatch', ?)", [
+      order.id, Date.now(), `Stripe ${s.amountTotal} ${s.currency} ≠ pedido ${order.total_cents} EUR`,
+    ]);
     return { ok: false, reason: 'amount_mismatch' };
   }
   if (order.status !== 'pending') return { ok: true, reason: 'already_processed' };
   await run('UPDATE orders SET stripe_session_id = ?, stripe_payment_intent = ? WHERE id = ?', [s.sessionId, s.paymentIntent, order.id]);
-  const updated = await changeStatus(order.id, 'paid', 'stripe', `Pago confirmado por webhook (${s.paymentIntent ?? s.sessionId})`);
-  notifyPaid(updated).catch((e) => log.error('order.notifyPaid', e));
-  return { ok: true, reason: 'paid' };
+  const changed = await setStatus(order, 'paid', 'stripe', `Pago confirmado por webhook (${s.paymentIntent ?? s.sessionId})`);
+  if (changed) {
+    const updated = (await get<OrderRow>('SELECT * FROM orders WHERE id = ?', [order.id]))!;
+    notifyPaid(updated).catch((e) => log.error('order.notifyPaid', e));
+  }
+  return { ok: true, reason: changed ? 'paid' : 'already_processed' };
+}
+
+/** Reembolso total registrado en Stripe. */
+export async function markRefunded(paymentIntent: string) {
+  const order = await get<OrderRow>('SELECT * FROM orders WHERE stripe_payment_intent = ?', [paymentIntent]);
+  if (!order || order.status !== 'paid') return undefined;
+  return (await setStatus(order, 'refunded', 'stripe', 'Reembolso total registrado en Stripe')) ? order.ref : undefined;
 }
 
 // ── Notificaciones ──
@@ -296,6 +259,7 @@ function customerRows(o: OrderRow): [string, string][] {
     ['Teléfono', o.phone],
     ['Dirección', [o.address_line1, o.address_line2, `${o.postal_code} ${o.city}`, o.region, countryName(o.country, 'es')].filter(Boolean).join('\n')],
     ['Notas', o.notes || '—'],
+    ['Idioma', o.locale.toUpperCase()],
   ];
 }
 
@@ -319,18 +283,22 @@ async function notifyOrderCreated(o: OrderRow, items: OrderItemRow[]) {
     template: 'order-created',
     related: o.ref,
   });
+  const next =
+    o.payment_method === 'stripe'
+      ? 'Pago con tarjeta pendiente: llegará otro correo cuando Stripe lo confirme.'
+      : 'Acción comercial: enviar al cliente la factura proforma con el importe final, el envío y las instrucciones de pago (responder a este correo).';
   await sendMail({
     to: config.mail.sales,
     replyTo: o.email,
     subject: `Nuevo pedido ${o.ref} (${o.payment_method === 'stripe' ? 'tarjeta' : 'proforma'}) — ${formatMoney(o.total_cents, 'es')}`,
-    text: `${textTable(customerRows(o))}\n\n${textTable(summaryRows({ ...o, locale: 'es' }, items))}`,
-    html: layout('Nuevo pedido', `<p>Nuevo pedido <strong>${esc(o.ref)}</strong> · ${o.payment_method === 'stripe' ? 'pago con tarjeta pendiente de confirmación' : 'requiere enviar factura proforma'}.</p>${table(customerRows(o))}${table(summaryRows({ ...o, locale: 'es' }, items))}<p><a href="${esc(config.siteUrl)}/admin/pedidos/${o.id}">Abrir en el panel</a></p>`),
+    text: `${next}\n\n${textTable(customerRows(o))}\n\n${textTable(summaryRows({ ...o, locale: 'es' }, items))}`,
+    html: layout('Nuevo pedido', `<p>Nuevo pedido <strong>${esc(o.ref)}</strong>.</p><p>${esc(next)}</p>${table(customerRows(o))}${table(summaryRows({ ...o, locale: 'es' }, items))}`),
     template: 'order-created-sales',
     related: o.ref,
   });
   await pushToCrm('order', {
     ref: o.ref, status: o.status, paymentMethod: o.payment_method, totalCents: o.total_cents, currency: 'EUR',
-    customer: { name: o.customer_name, company: o.company, email: o.email, phone: o.phone, country: o.country },
+    customer: { name: o.customer_name, company: o.company, taxId: o.tax_id, email: o.email, phone: o.phone, country: o.country },
     items: items.map((i) => ({ sku: i.sku, name: i.product_name, variant: i.variant_label, qty: i.qty, unitCents: i.unit_price_cents })),
   });
 }
@@ -344,18 +312,11 @@ async function notifyPaid(o: OrderRow) {
   await sendMail({ to: o.email, subject, text: body, html: layout(subject, `<p>${esc(body)}</p>`), template: 'order-paid', related: o.ref });
   await sendMail({
     to: config.mail.sales,
-    subject: `Pago confirmado ${o.ref} — ${formatMoney(o.total_cents, 'es')}`,
-    text: `Stripe confirmó el pago del pedido ${o.ref}.`,
-    html: layout('Pago confirmado', `<p>Stripe confirmó el pago del pedido <strong>${esc(o.ref)}</strong>.</p><p><a href="${esc(config.siteUrl)}/admin/pedidos/${o.id}">Abrir en el panel</a></p>`),
+    replyTo: o.email,
+    subject: `Pago confirmado ${o.ref} — ${formatMoney(o.total_cents, 'es')}: preparar envío`,
+    text: `Stripe confirmó el pago del pedido ${o.ref} (${o.customer_name}, ${o.email}). Preparar el envío y avisar al cliente.`,
+    html: layout('Pago confirmado', `<p>Stripe confirmó el pago del pedido <strong>${esc(o.ref)}</strong> de ${esc(o.customer_name)} (${esc(o.email)}).</p><p>Preparar el envío y avisar al cliente respondiendo a este correo.</p>`),
     template: 'order-paid-sales',
     related: o.ref,
   });
-}
-
-async function notifyStatus(o: OrderRow) {
-  const L = o.locale;
-  const label = t(L, `status.${o.status}` as any);
-  const subject = L === 'es' ? `Pedido ${o.ref}: ${label}` : `Order ${o.ref}: ${label}`;
-  const body = L === 'es' ? `El estado de su pedido ${o.ref} ha cambiado a: ${label}.` : `The status of your order ${o.ref} is now: ${label}.`;
-  await sendMail({ to: o.email, subject, text: body, html: layout(subject, `<p>${esc(body)}</p>`), template: `order-${o.status}`, related: o.ref });
 }

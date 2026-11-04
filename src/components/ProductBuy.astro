@@ -6,7 +6,6 @@ import Picture from './Picture.astro';
 import images from '../data/images.json';
 import { route, t, type Locale } from '../lib/i18n.ts';
 import { formatMoney } from '../lib/pricing.ts';
-import { mediaUrl } from '../lib/media.ts';
 import { L } from '../lib/limits.ts';
 import type { Product } from '../lib/catalog.ts';
 
@@ -20,32 +19,17 @@ interface Props {
 const { product: p, locale, vatIncluded, headingLevel = 'h3', showMedia = true } = Astro.props;
 const H = headingLevel;
 const detail = route('product', locale, p.slug);
-const firstAvailable = p.variants.findIndex((v) => v.available);
-const selected = p.variants[firstAvailable >= 0 ? firstAvailable : 0];
+const selected = p.variants[0];
 const priceLabel = (c: number | null) => (c ? formatMoney(c, locale) : t(locale, 'shop.pricePending'));
 const photo = p.photo && p.photo in images ? (p.photo as keyof typeof images) : undefined;
-const uploaded = p.images[0];
 const groupName = `size-${p.slug}`;
 ---
 
 <article class="buy" data-buy data-product={p.slug} data-name={`${p.code} — ${p.name}`}>
   {
     showMedia && (
-      <a class:list={["buy__media photo", photo && !uploaded && `photo-${photo}`]} href={detail} tabindex="-1" aria-hidden="true">
-        {uploaded ? (
-          <img
-            src={mediaUrl(uploaded.mediaId, 960)}
-            srcset={`${mediaUrl(uploaded.mediaId, 480)} 480w, ${mediaUrl(uploaded.mediaId, 960)} 960w, ${mediaUrl(uploaded.mediaId, 1600)} 1600w`}
-            sizes="(min-width: 1024px) 40vw, 92vw"
-            width={uploaded.width}
-            height={uploaded.height}
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
-        ) : photo ? (
-          <Picture name={photo} alt="" sizes="(min-width: 1024px) 40vw, 92vw" />
-        ) : null}
+      <a class:list={['buy__media photo', photo && `photo-${photo}`]} href={detail} tabindex="-1" aria-hidden="true">
+        {photo && <Picture name={photo} alt="" sizes="(min-width: 1024px) 40vw, 92vw" />}
         <span class="buy__code">{p.code}</span>
       </a>
     )
@@ -60,18 +44,15 @@ const groupName = `size-${p.slug}`;
       <div class="sizes__opts">
         {
           p.variants.map((v) => (
-            <label class:list={['size', { 'size--off': !v.available }]}>
+            <label class="size">
               <input
                 type="radio"
                 name={groupName}
-                value={v.id}
-                checked={v.id === selected?.id}
-                disabled={!v.available}
+                value={v.sku}
+                checked={v.sku === selected?.sku}
                 data-price={v.priceCents ?? ''}
                 data-price-label={priceLabel(v.priceCents)}
                 data-label={v.label}
-                data-stock={v.stock ?? ''}
-                data-low={v.lowStock ? '1' : ''}
               />
               <span>{v.label}</span>
             </label>
@@ -83,7 +64,7 @@ const groupName = `size-${p.slug}`;
     <div class="buy__row">
       <div class="qty" data-qty-wrap>
         <button type="button" class="qty__btn" data-qty-dec aria-label={t(locale, 'shop.decrease')}><Icon name="minus" size={18} /></button>
-        <input class="qty__input num" type="number" inputmode="numeric" min={L.qty.min} max={selected?.stock ?? L.qty.max} value="1" aria-label={t(locale, 'shop.quantity')} data-qty />
+        <input class="qty__input num" type="number" inputmode="numeric" min={L.qty.min} max={L.qty.max} value="1" aria-label={t(locale, 'shop.quantity')} data-qty />
         <button type="button" class="qty__btn" data-qty-inc aria-label={t(locale, 'shop.increase')}><Icon name="plus" size={18} /></button>
       </div>
       <p class="buy__price" aria-live="polite">
@@ -93,15 +74,12 @@ const groupName = `size-${p.slug}`;
         </span>
       </p>
     </div>
-    <p class="buy__stock" data-stock-note data-low-text={t(locale, 'shop.lowStock')} data-out-text={t(locale, 'shop.outOfStock')} hidden={!selected?.lowStock && selected?.available !== false}>
-      {selected?.available === false ? t(locale, 'shop.outOfStock') : selected?.lowStock ? t(locale, 'shop.lowStock') : ''}
-    </p>
 
     <div class="buy__actions">
-      <button class="btn" type="button" data-add-to-cart hidden={!selected?.priceCents || !selected?.available}>
+      <button class="btn" type="button" data-add-to-cart hidden={!selected?.priceCents}>
         {t(locale, 'shop.addToCart')} <Icon name="cart" size={18} />
       </button>
-      <button class="btn btn--outline" type="button" data-quote-open data-product={p.slug} data-ask-price hidden={!!selected?.priceCents && selected?.available}>
+      <button class="btn btn--outline" type="button" data-quote-open data-product={p.slug} data-ask-price hidden={!!selected?.priceCents}>
         {t(locale, 'shop.askPrice')}
       </button>
       <a class="link" href={detail}>{t(locale, 'common.viewDetail')}</a>
