@@ -64,9 +64,47 @@ const es = locale === 'es';
         <dd>{copy['about.stat3']}</dd>
       </div>
       <div class="stats__item stats__item--place reveal">
-        <dt class="stats__num stats__num--text">MAD<span aria-hidden="true"> · </span>COL</dt>
+        <dt class="stats__num stats__num--text">COL<span aria-hidden="true"> · </span>EU</dt>
         <dd>{copy['about.stat4']}</dd>
       </div>
     </dl>
+
+    <div class="backing">
+      <div class="backing__item reveal">
+        <a class="backing__logo" href={contact.groupUrl} target="_blank" rel="noopener">
+          <img
+            src="/img/morano-gruppo-280.webp"
+            srcset="/img/morano-gruppo-280.webp 280w, /img/morano-gruppo-560.webp 560w"
+            sizes="180px"
+            width="280"
+            height="163"
+            alt="Morano Gruppo"
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
+        <div class="backing__text">
+          <h3 class="backing__title">{copy['about.groupTitle']}</h3>
+          <p class="muted">{copy['about.groupText']}</p>
+        </div>
+      </div>
+      <div class="backing__item reveal" data-delay="120">
+        <img
+          class="backing__seal"
+          src="/img/iscc-260.webp"
+          srcset="/img/iscc-260.webp 260w, /img/iscc-520.webp 520w"
+          sizes="220px"
+          width="260"
+          height="94"
+          alt="ISCC Certificate Holder — International Sustainability & Carbon Certification"
+          loading="lazy"
+          decoding="async"
+        />
+        <div class="backing__text">
+          <h3 class="backing__title">{copy['about.isccTitle']}</h3>
+          <p class="muted">{copy['about.isccText']}</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>

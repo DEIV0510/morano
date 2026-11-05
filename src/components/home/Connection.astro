@@ -1,7 +1,7 @@
 ---
 // Conexión Colombia → Europa. Solo se marcan los dos puntos documentados
-// (Colombia, origen industrial; Madrid, plataforma comercial). Los "mercados
-// internacionales" se representan con ondas desde Madrid, sin trazar destinos.
+// (Colombia, origen industrial; Europa, plataforma comercial con sede en Madrid).
+// Los "mercados internacionales" se representan con ondas desde Europa, sin trazar destinos.
 import map from '../../data/map.json';
 import { SECTIONS, type Locale } from '../../lib/i18n.ts';
 import type { CopyMap } from '../../lib/copy.ts';
@@ -18,7 +18,7 @@ const md = points.madrid;
 const arc = `M${co.x} ${co.y} C ${co.x + 120} ${co.y - 210}, ${md.x - 230} ${md.y - 120}, ${md.x} ${md.y}`;
 const nodes = [
   { n: '01', name: 'Colombia', text: copy['connection.colombia'] },
-  { n: '02', name: es ? 'Europa · Madrid' : 'Europe · Madrid', text: copy['connection.europe'] },
+  { n: '02', name: es ? 'Europa' : 'Europe', text: copy['connection.europe'] },
   { n: '03', name: es ? 'Mercados internacionales' : 'International markets', text: copy['connection.markets'] },
 ];
 ---
@@ -48,9 +48,9 @@ const nodes = [
         </circle>
       </svg>
       <span class="connection__label connection__label--co"><span class="num">01</span> Colombia</span>
-      <span class="connection__label connection__label--md"><span class="num">02</span> Madrid</span>
+      <span class="connection__label connection__label--md"><span class="num">02</span> {es ? 'Europa' : 'Europe'}</span>
       <figcaption class="visually-hidden">
-        {es ? 'Mapa estilizado: conexión entre las operaciones industriales en Colombia y la plataforma comercial en Madrid.' : 'Stylised map: connection between the industrial operations in Colombia and the commercial platform in Madrid.'}
+        {es ? 'Mapa estilizado: conexión entre las operaciones industriales en Colombia y la plataforma comercial en Europa.' : 'Stylised map: connection between the industrial operations in Colombia and the commercial platform in Europe.'}
       </figcaption>
     </figure>
 

@@ -667,6 +667,76 @@
   font-size: var(--fs-small);
   color: var(--gray-ink);
 }
+/* Respaldo: logotipo del grupo y sello ISCC */
+.backing {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: clamp(56px, 7vw, 96px);
+  border-top: 1px solid var(--silver);
+}
+.backing__item {
+  display: grid;
+  grid-template-rows: 112px auto;
+  align-content: start;
+  justify-items: start;
+  gap: 26px;
+  padding: 40px 48px 0 0;
+}
+.backing__item + .backing__item {
+  padding: 40px 0 0 48px;
+  border-left: 1px solid var(--silver-soft);
+}
+.backing__logo,
+.backing__seal {
+  align-self: center;
+}
+.backing__logo {
+  display: block;
+}
+.backing__logo img {
+  width: 180px;
+  height: auto;
+}
+.backing__seal {
+  width: 220px;
+  height: auto;
+}
+.backing__title {
+  font-size: 1.12rem;
+  font-weight: 500;
+  color: var(--navy);
+}
+.backing__text .muted {
+  margin-top: 10px;
+  max-width: 48ch;
+  font-size: var(--fs-small);
+}
+@media (max-width: 1023px) {
+  .backing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .backing__item,
+  .backing__item + .backing__item {
+    padding: 32px 0;
+    border-left: 0;
+  }
+  .backing__item + .backing__item {
+    border-top: 1px solid var(--silver-soft);
+  }
+}
+@media (max-width: 560px) {
+  .backing__item {
+    grid-template-rows: auto auto;
+    gap: 20px;
+  }
+  .backing__logo img {
+    width: 150px;
+  }
+  .backing__seal {
+    width: 180px;
+  }
+}
+
 @media (max-width: 1023px) {
   .about__text,
   .about__media {

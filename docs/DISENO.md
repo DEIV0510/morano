@@ -38,7 +38,7 @@ No se usan otros colores (el botón de WhatsApp es azul de marca con icono dorad
 3. **Operación**: galería editorial asimétrica sobre azul profundo, seis categorías con índice.
 4. **Productos**: dos módulos de compra grandes y una retícula de fichas técnicas para cotización.
 5. **Servicios**: título fijo a la izquierda y lista numerada con iconos lineales propios.
-6. **Colombia — Europa**: mapa de puntos (Natural Earth) con la ruta animada Colombia → Madrid y ondas desde Madrid para los mercados internacionales (sin inventar destinos).
+6. **Colombia — Europa**: mapa de puntos (Natural Earth) con la ruta animada Colombia → Europa (punto en Madrid, sede) y ondas desde Europa para los mercados internacionales (sin inventar destinos).
 7. **Contacto**: panel azul con datos oficiales y formulario.
 
 ## Movimiento
