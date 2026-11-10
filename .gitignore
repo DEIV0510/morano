@@ -1,6 +1,7 @@
 # Dependencias y compilación
 node_modules/
 dist/
+/dist-wp/
 .astro/
 .vercel/
 

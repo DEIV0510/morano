@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 
 // Web estática: Vercel (o cualquier hosting) la publica sin servidor ni base de datos.
 export default defineConfig({
-  site: 'https://www.moranoeurope.com',
+  site: 'https://moranoeurope.com',
   output: 'static',
   trailingSlash: 'ignore',
   compressHTML: true,

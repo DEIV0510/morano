@@ -54,3 +54,13 @@ Al no haber servidor, base de datos ni cuentas, no hay nada que atacar más all�
 Rendimiento: imágenes AVIF/WebP responsivas, 3 pesos de fuente autoalojados (~10 KB c/u), ≈5 KB de JavaScript comprimido, sin librerías.
 
 Más detalle: [docs/DISENO.md](docs/DISENO.md) (dirección de arte) y [docs/PENDIENTES.md](docs/PENDIENTES.md) (datos que faltan).
+
+## WordPress (moranoeurope.com)
+
+La misma web se publica en el WordPress de moranoeurope.com como plugin **Morano Europe — Web corporativa** (sirve `/es/` y `/en/`; no toca el tema, Elementor ni las demás páginas).
+
+```bash
+npm run wp         # compila y genera dist-wp/morano-europe-web.zip
+```
+
+Subir el ZIP en WordPress → Plugins → Añadir nuevo → Subir plugin → «Reemplazar la actual con la subida». En **Ajustes → Web Morano Europe** se elige vista previa (solo administradores) o publicada para todos. Desactivar el plugin devuelve la portada anterior.

@@ -1,6 +1,6 @@
 // Datos de contacto oficiales y URL pública del sitio.
 export const config = {
-  siteUrl: 'https://www.moranoeurope.com',
+  siteUrl: 'https://moranoeurope.com',
 };
 
 export const contact = {
@@ -12,7 +12,7 @@ export const contact = {
   whatsappDigits: '34691777292',
   instagram: 'moranoeurope',
   instagramUrl: 'https://www.instagram.com/moranoeurope/',
-  web: 'www.moranoeurope.com',
+  web: 'moranoeurope.com',
   groupUrl: 'https://moranogruppo.com/',
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Paseo+de+la+Castellana+200+Madrid',
 };
