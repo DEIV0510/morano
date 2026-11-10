@@ -123,9 +123,21 @@ function mew_redirect( $to, $status ) {
 	$query = isset( $_SERVER['QUERY_STRING'] ) ? (string) $_SERVER['QUERY_STRING'] : '';
 	$url   = home_url( $to ) . ( '' !== $query ? '?' . $query : '' );
 	mew_clean_buffers();
+	mew_drop_cookies();
 	header( 'X-LiteSpeed-Cache-Control: no-cache' );
 	wp_redirect( $url, $status, 'Morano Europe' );
 	exit;
+}
+
+/**
+ * La web no usa cookies (ver su política de cookies). Para visitantes sin
+ * sesión se quitan las que otros plugins hayan preparado (p. ej. la de
+ * LiteSpeed «_lscache_vary»): además, una respuesta con cookie no se cachea.
+ */
+function mew_drop_cookies() {
+	if ( ! is_user_logged_in() ) {
+		header_remove( 'Set-Cookie' );
+	}
 }
 
 function mew_not_found() {
@@ -135,6 +147,7 @@ function mew_not_found() {
 /** Envía un archivo de pages/ con las cabeceras de la web y termina. */
 function mew_send( $file, $type, $status ) {
 	mew_clean_buffers();
+	mew_drop_cookies();
 	$cacheable = ( 200 === $status ) && mew_is_live() && ! is_user_logged_in();
 	status_header( $status );
 	header( 'Content-Type: ' . $type );
