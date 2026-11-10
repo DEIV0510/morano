@@ -113,11 +113,13 @@ writeFileSync(
 );
 writeFileSync(
   join(OUT, 'site', '.htaccess'),
-  '<IfModule mod_headers.c>\n  <FilesMatch "\\.(avif|webp|jpe?g|png|svg|woff2|webmanifest)$">\n    Header set Cache-Control "public, max-age=2592000"\n  </FilesMatch>\n  <FilesMatch "\\.js$">\n    Header set Cache-Control "public, max-age=86400"\n  </FilesMatch>\n</IfModule>\n'
+  '<IfModule mod_mime.c>\n  AddType application/manifest+json .webmanifest\n  AddType font/woff2 .woff2\n  AddType image/avif .avif\n</IfModule>\n<IfModule mod_headers.c>\n  <FilesMatch "\\.(avif|webp|jpe?g|png|svg|woff2|webmanifest)$">\n    Header set Cache-Control "public, max-age=2592000"\n  </FilesMatch>\n  <Files "intro.js">\n    Header set Cache-Control "public, max-age=86400"\n  </Files>\n</IfModule>\n'
 );
+// Archivos con huella en el nombre: caché de un año. FilesMatch (no a nivel de
+// carpeta) para que no lo pise ninguna regla de la carpeta superior.
 writeFileSync(
   join(OUT, 'site', '_astro', '.htaccess'),
-  '<IfModule mod_headers.c>\n  Header set Cache-Control "public, max-age=31536000, immutable"\n</IfModule>\n'
+  '<IfModule mod_headers.c>\n  <FilesMatch "\\.(css|js)$">\n    Header set Cache-Control "public, max-age=31536000, immutable"\n  </FilesMatch>\n</IfModule>\n'
 );
 
 // ZIP con el tar de Windows (bsdtar): rutas con «/», válidas en el servidor Linux.
