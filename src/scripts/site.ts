@@ -123,16 +123,21 @@ document.querySelectorAll<HTMLAnchorElement>('[data-lang-switch]').forEach((a) =
   });
 });
 
-/* ── Entradas al hacer scroll ── */
+/* ── Entradas al hacer scroll ──
+   Las máscaras (.reveal-mask) empiezan recortadas a altura cero con clip-path y
+   Chrome/Safari cuentan ese recorte en la intersección: nunca llegaban al umbral
+   y las fotos no aparecían. Se vigila su contenedor y, al entrar, se activa la máscara. */
+const revealOf = new Map<Element, HTMLElement[]>();
 const io = new IntersectionObserver(
   (entries) => {
     for (const en of entries) {
       if (!en.isIntersecting) continue;
-      const el = en.target as HTMLElement;
-      if (el.dataset.delay) el.style.setProperty('--d', `${el.dataset.delay}ms`);
-      el.classList.add('is-in');
-      io.unobserve(el);
-      if (el.matches('[data-count-wrap], .stats__item')) el.querySelectorAll<HTMLElement>('[data-count]').forEach(countUp);
+      for (const el of revealOf.get(en.target) ?? []) {
+        if (el.dataset.delay) el.style.setProperty('--d', `${el.dataset.delay}ms`);
+        el.classList.add('is-in');
+        if (el.matches('[data-count-wrap], .stats__item')) el.querySelectorAll<HTMLElement>('[data-count]').forEach(countUp);
+      }
+      io.unobserve(en.target);
     }
   },
   { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
@@ -141,7 +146,9 @@ document.querySelectorAll<HTMLElement>('.reveal, .reveal-mask').forEach((el) => 
   // La propia máscara hereda el retraso del contenedor (galería en parejas).
   const holder = el.closest<HTMLElement>('[data-delay]');
   if (holder && !el.dataset.delay) el.dataset.delay = holder.dataset.delay;
-  io.observe(el);
+  const target = el.matches('.reveal-mask') && el.parentElement ? el.parentElement : el;
+  revealOf.set(target, [...(revealOf.get(target) ?? []), el]);
+  io.observe(target);
 });
 
 /* ── Contadores ── */
