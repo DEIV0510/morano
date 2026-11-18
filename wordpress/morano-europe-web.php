@@ -179,9 +179,18 @@ function mew_robots( $output, $is_public ) {
 	return rtrim( $output ) . "\nSitemap: " . home_url( '/sitemap.xml' ) . "\n";
 }
 
-/** Vacía la caché de LiteSpeed (si está instalado) al publicar, ocultar o actualizar. */
+/**
+ * Vacía la caché de LiteSpeed al publicar, ocultar o actualizar. El «purgar
+ * todo» del plugin LiteSpeed Cache solo borra las páginas con sus etiquetas;
+ * las de esta web llevan la etiqueta «mew», así que se pide además al
+ * servidor que purgue esa etiqueta (si no, las páginas viejas siguen en
+ * caché hasta 7 días y pueden pedir JS/CSS que ya no existen).
+ */
 function mew_purge_cache() {
 	do_action( 'litespeed_purge_all' );
+	if ( ! headers_sent() ) {
+		header( 'X-LiteSpeed-Purge: tag=mew', false );
+	}
 }
 
 function mew_admin_init() {
