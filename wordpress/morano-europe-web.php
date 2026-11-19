@@ -159,7 +159,7 @@ function mew_send( $file, $type, $status ) {
 	if ( $cacheable ) {
 		header( 'Cache-Control: public, max-age=0, must-revalidate' );
 		header( 'X-LiteSpeed-Cache-Control: public,max-age=604800' );
-		header( 'X-LiteSpeed-Tag: mew' );
+		header( 'X-LiteSpeed-Tag: ' . mew_lscache_tags() );
 	} else {
 		nocache_headers();
 		header( 'X-LiteSpeed-Cache-Control: no-cache' );
@@ -180,17 +180,30 @@ function mew_robots( $output, $is_public ) {
 }
 
 /**
- * Vacía la caché de LiteSpeed al publicar, ocultar o actualizar. El «purgar
- * todo» del plugin LiteSpeed Cache solo borra las páginas con sus etiquetas;
- * las de esta web llevan la etiqueta «mew», así que se pide además al
- * servidor que purgue esa etiqueta (si no, las páginas viejas siguen en
- * caché hasta 7 días y pueden pedir JS/CSS que ya no existen).
+ * Etiquetas de caché de las páginas de la web. El «Purgar todo» de LiteSpeed
+ * Cache purga la etiqueta «{prefijo}_» que pone a cada página que cachea; las
+ * páginas de este plugin no pasan por LiteSpeed Cache, así que se les pone a
+ * mano (si no, «Purgar todo» no las borra: siguen en caché hasta 7 días y
+ * pueden pedir JS/CSS que ya no existen).
+ */
+function mew_lscache_tags() {
+	$tags = array( 'mew' );
+	if ( defined( 'LSWCP_TAG_PREFIX' ) ) {
+		$prefix = LSWCP_TAG_PREFIX . ( is_multisite() ? get_current_blog_id() : '' ) . '_';
+		$tags[] = $prefix;
+		$tags[] = $prefix . 'mew';
+	}
+	return implode( ',', $tags );
+}
+
+/**
+ * Vacía la caché de LiteSpeed al publicar, ocultar o actualizar, a través de
+ * LiteSpeed Cache (si se envía una cabecera X-LiteSpeed-Purge propia,
+ * LiteSpeed Cache la reemplaza con la suya).
  */
 function mew_purge_cache() {
 	do_action( 'litespeed_purge_all' );
-	if ( ! headers_sent() ) {
-		header( 'X-LiteSpeed-Purge: tag=mew', false );
-	}
+	do_action( 'litespeed_purge', 'mew' );
 }
 
 function mew_admin_init() {
