@@ -24,7 +24,23 @@ const es = locale === 'es';
       </h2>
       <p class="lead reveal">{copy['about.lead']}</p>
       <p class="muted reveal">{copy['about.body']}</p>
-      <a class="link reveal" href={contact.groupUrl} target="_blank" rel="noopener">moranogruppo.com <Icon name="arrow-up-right" size={14} /></a>
+      {/* Tarjeta «Parte de Morano Gruppo» (la misma de moranousa.com) */}
+      <a class="about__gruppo reveal" href={contact.groupUrl} target="_blank" rel="noopener">
+        <img
+          src="/img/morano-gruppo-280.webp"
+          srcset="/img/morano-gruppo-280.webp 280w, /img/morano-gruppo-560.webp 560w"
+          sizes="72px"
+          width="280"
+          height="163"
+          alt="Morano Gruppo"
+          loading="lazy"
+          decoding="async"
+        />
+        <span>
+          <span class="about__gruppo-k">{es ? 'Parte de' : 'Part of'}</span>
+          <span class="about__gruppo-n">Morano Gruppo <Icon name="arrow-up-right" size={14} /></span>
+        </span>
+      </a>
     </div>
 
     <div class="about__media">
